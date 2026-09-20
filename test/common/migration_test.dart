@@ -44,6 +44,26 @@ void main() {
       expect(observedFreshInstall, isTrue);
     });
 
+    test('legacy clash-only data is not a fresh install', () async {
+      final store = _FakeMigrationStore(
+        configMap: null,
+        version: 0,
+        clashConfigMap: _createClashConfigMap(mixedPort: 7890),
+      );
+      bool? observedFreshInstall;
+      final migration = Migration(
+        store: store,
+        finalize: (config, {required bool isFreshInstall}) async {
+          observedFreshInstall = isFreshInstall;
+          return config;
+        },
+      );
+
+      await migration.run();
+
+      expect(observedFreshInstall, isFalse);
+    });
+
     test('returns current config without rewriting storage', () async {
       final configMap = _createConfigMap(
         davProps: const DAVProps(

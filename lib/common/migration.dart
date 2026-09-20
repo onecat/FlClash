@@ -141,7 +141,7 @@ class Migration {
   Future<Config> run() async {
     final configMap = await _store.getConfigMap();
     var oldVersion = await _store.getVersion();
-    final isFreshInstall = configMap == null && oldVersion == 0;
+    var isFreshInstall = configMap == null && oldVersion == 0;
     Config? config;
     if (oldVersion > currentVersion) {
       throw StateError(
@@ -175,6 +175,7 @@ class Migration {
     var shouldClearClashConfig = false;
     if (oldVersion == 0) {
       final clashConfigMap = await _store.getClashConfigMap();
+      isFreshInstall = isFreshInstall && clashConfigMap == null;
       if (_isV0(configMap) && configMap != null) {
         final legacyConfigMap = Map<String, Object?>.from(configMap);
         if (clashConfigMap != null) {
