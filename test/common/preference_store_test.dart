@@ -71,10 +71,7 @@ void main() {
     final store = await JsonPreferenceStore.open(file);
     await store.setInt('old', 1);
 
-    await Future.wait([
-      store.clear(),
-      store.setInt('new', 2),
-    ]);
+    await Future.wait([store.clear(), store.setInt('new', 2)]);
 
     final reopened = await JsonPreferenceStore.open(file);
     expect(reopened.getInt('old'), isNull);

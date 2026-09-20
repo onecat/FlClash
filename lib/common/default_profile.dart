@@ -21,7 +21,8 @@ rules:
   - MATCH,DIRECT
 ''';
 
-const _initializationMarker = 'initialized\n';
+const _initializedMarker = 'initialized\n';
+const _pendingMarkerPrefix = 'pending:';
 
 abstract interface class DefaultProfileStore {
   Future<bool> get isAvailable;
@@ -30,7 +31,7 @@ abstract interface class DefaultProfileStore {
 
   Profile createProfile();
 
-  Future<File> profileFile(Profile profile);
+  Future<File> profileFile(int profileId);
 
   Future<void> saveProfile(Profile profile);
 
@@ -44,6 +45,7 @@ abstract interface class DefaultProfileStore {
 Future<Config> ensureDefaultDirectProfile(
   Config config, {
   bool? isWindows,
+  required bool isFreshInstall,
   required DefaultProfileStore store,
 }) async {
   if (!(isWindows ?? Platform.isWindows) || !await store.isAvailable) {
@@ -51,13 +53,37 @@ Future<Config> ensureDefaultDirectProfile(
   }
 
   final marker = await store.markerFile();
-  if (await _hasInitializationMarker(marker)) {
+  final markerState = await _readInitializationMarker(marker);
+  if (markerState == _initializedMarker) {
     return config;
   }
 
   final profiles = await store.loadProfiles();
-  if (profiles.isNotEmpty) {
-    await _writeInitializationMarker(marker);
+  final pendingProfileId = _pendingProfileId(markerState);
+  if (pendingProfileId != null) {
+    Profile? pendingProfile;
+    for (final profile in profiles) {
+      if (profile.id == pendingProfileId) {
+        pendingProfile = profile;
+        break;
+      }
+    }
+    if (pendingProfile != null) {
+      final nextConfig = config.currentProfileId == pendingProfileId
+          ? config
+          : config.copyWith(currentProfileId: pendingProfileId);
+      if (nextConfig != config && !await store.saveConfig(nextConfig)) {
+        throw StateError('failed to recover default profile selection');
+      }
+      await _writeMarker(marker, _initializedMarker);
+      return nextConfig;
+    }
+    await _deleteProfileFileBestEffort(store, pendingProfileId);
+  }
+
+  final shouldCreate = isFreshInstall || markerState != null;
+  if (profiles.isNotEmpty || !shouldCreate) {
+    await _writeInitializationMarkerBestEffort(marker);
     return config;
   }
 
@@ -65,11 +91,14 @@ Future<Config> ensureDefaultDirectProfile(
     autoUpdate: false,
     lastUpdateDate: DateTime.now(),
   );
-  final file = await store.profileFile(profile);
+  await _writeMarker(marker, '$_pendingMarkerPrefix${profile.id}\n');
+
+  File? file;
   var profileSaveAttempted = false;
   var configSaveAttempted = false;
 
   try {
+    file = await store.profileFile(profile.id);
     await file.safeWriteAsString(defaultDirectProfileYaml);
     profileSaveAttempted = true;
     await store.saveProfile(profile);
@@ -80,11 +109,9 @@ Future<Config> ensureDefaultDirectProfile(
       throw StateError('failed to persist default profile selection');
     }
 
-    await _writeInitializationMarker(marker);
+    await _writeMarker(marker, _initializedMarker);
     return nextConfig;
   } catch (error, stackTrace) {
-    await marker.safeDelete();
-
     if (configSaveAttempted) {
       try {
         if (!await store.saveConfig(config)) {
@@ -112,28 +139,67 @@ Future<Config> ensureDefaultDirectProfile(
       }
     }
 
-    try {
-      await file.safeDelete();
-    } catch (cleanupError) {
-      commonPrint.log(
-        'Failed to roll back default profile file: $cleanupError',
-        logLevel: LogLevel.warning,
-      );
+    if (file != null) {
+      try {
+        await file.safeDelete();
+      } catch (cleanupError) {
+        commonPrint.log(
+          'Failed to roll back default profile file: $cleanupError',
+          logLevel: LogLevel.warning,
+        );
+      }
     }
 
     Error.throwWithStackTrace(error, stackTrace);
   }
 }
 
-Future<bool> _hasInitializationMarker(File marker) async {
+int? _pendingProfileId(String? markerState) {
+  if (markerState == null ||
+      !markerState.startsWith(_pendingMarkerPrefix) ||
+      !markerState.endsWith('\n')) {
+    return null;
+  }
+  return int.tryParse(
+    markerState.substring(_pendingMarkerPrefix.length, markerState.length - 1),
+  );
+}
+
+Future<String?> _readInitializationMarker(File marker) async {
   try {
-    return await marker.readAsString() == _initializationMarker;
+    return await marker.readAsString();
   } on FileSystemException {
-    return false;
+    return null;
   }
 }
 
-Future<void> _writeInitializationMarker(File marker) async {
+Future<void> _writeMarker(File marker, String value) async {
   await marker.parent.create(recursive: true);
-  await marker.writeAsString(_initializationMarker, flush: true);
+  await marker.writeAsString(value, flush: true);
+}
+
+Future<void> _writeInitializationMarkerBestEffort(File marker) async {
+  try {
+    await _writeMarker(marker, _initializedMarker);
+  } catch (error) {
+    commonPrint.log(
+      'Failed to persist the default profile initialization marker: $error',
+      logLevel: LogLevel.warning,
+    );
+  }
+}
+
+Future<void> _deleteProfileFileBestEffort(
+  DefaultProfileStore store,
+  int profileId,
+) async {
+  try {
+    final file = await store.profileFile(profileId);
+    await file.safeDelete();
+  } catch (error) {
+    commonPrint.log(
+      'Failed to clean up pending default profile file: $error',
+      logLevel: LogLevel.warning,
+    );
+  }
 }

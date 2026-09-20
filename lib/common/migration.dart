@@ -11,9 +11,13 @@ import 'task.dart';
 typedef MigrationTransform =
     Future<MigrationData> Function(Map<String, Object?> configMap);
 
-typedef MigrationFinalize = Future<Config> Function(Config config);
+typedef MigrationFinalize =
+    Future<Config> Function(Config config, {required bool isFreshInstall});
 
-Future<Config> _identityFinalize(Config config) async => config;
+Future<Config> _identityFinalize(
+  Config config, {
+  required bool isFreshInstall,
+}) async => config;
 
 abstract interface class MigrationStore {
   /// False when the backing store could not be opened at all, as opposed to a
@@ -85,7 +89,9 @@ class _AppDefaultProfileStore implements DefaultProfileStore {
   Profile createProfile() => Profile.normal(label: defaultDirectProfileLabel);
 
   @override
-  Future<File> profileFile(Profile profile) => profile.file;
+  Future<File> profileFile(int profileId) async {
+    return File(await appPath.getProfilePath(profileId.toString()));
+  }
 
   @override
   Future<void> saveProfile(Profile profile) async {
@@ -106,9 +112,13 @@ class _AppDefaultProfileStore implements DefaultProfileStore {
   }
 }
 
-Future<Config> _ensureAppDefaultDirectProfile(Config config) {
+Future<Config> _ensureAppDefaultDirectProfile(
+  Config config, {
+  required bool isFreshInstall,
+}) {
   return ensureDefaultDirectProfile(
     config,
+    isFreshInstall: isFreshInstall,
     store: const _AppDefaultProfileStore(),
   );
 }
@@ -131,6 +141,7 @@ class Migration {
   Future<Config> run() async {
     final configMap = await _store.getConfigMap();
     var oldVersion = await _store.getVersion();
+    var isFreshInstall = configMap == null && oldVersion == 0;
     Config? config;
     if (oldVersion > currentVersion) {
       throw StateError(
@@ -156,7 +167,7 @@ class Migration {
         if (hasPlainTextDavPassword && !await _store.saveConfig(config)) {
           throw StateError('Failed to obfuscate the legacy WebDAV password');
         }
-        return _finalize(config);
+        return _finalize(config, isFreshInstall: isFreshInstall);
       }
     }
 
@@ -164,6 +175,7 @@ class Migration {
     var shouldClearClashConfig = false;
     if (oldVersion == 0) {
       final clashConfigMap = await _store.getClashConfigMap();
+      isFreshInstall = isFreshInstall && clashConfigMap == null;
       if (_isV0(configMap) && configMap != null) {
         final legacyConfigMap = Map<String, Object?>.from(configMap);
         if (clashConfigMap != null) {
@@ -183,19 +195,20 @@ class Migration {
 
     config = Config.realFromJson(data.configMap);
     await _store.restore(data);
+    config = await _finalize(config, isFreshInstall: isFreshInstall);
     if (!await _store.saveConfig(config)) {
       // An unopenable store is reported later by the corrupt-cache dialog,
       // which offers a reset; failing here would hide that path.
       if (await _store.isAvailable) {
         throw StateError('Failed to save migrated preferences');
       }
-      return _finalize(config);
+      return config;
     }
     if (shouldClearClashConfig) {
       await _store.clearClashConfig();
     }
     await _store.setVersion(currentVersion);
-    return _finalize(config);
+    return config;
   }
 }
 

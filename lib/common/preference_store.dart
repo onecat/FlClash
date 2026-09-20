@@ -31,8 +31,7 @@ class SharedPreferencesStore implements PreferenceStore {
   String? getString(String key) => _preferences.getString(key);
 
   @override
-  Future<bool> setInt(String key, int value) =>
-      _preferences.setInt(key, value);
+  Future<bool> setInt(String key, int value) => _preferences.setInt(key, value);
 
   @override
   Future<bool> setString(String key, String value) =>
@@ -155,10 +154,7 @@ class JsonPreferenceStore implements PreferenceStore {
         rethrow;
       }
     });
-    _writeQueue = operation.then<void>(
-      (_) {},
-      onError: (Object error) {},
-    );
+    _writeQueue = operation.then<void>((_) {}, onError: (Object error) {});
     return operation;
   }
 
