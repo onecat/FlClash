@@ -100,30 +100,13 @@ class Bootstrap {
       await preferences.saveConfig(config);
     }
     var profiles = await database.profilesDao.query().get();
-    if (shouldCreateDefaultDirectProfile(
+    final defaultProfile = await ensureDefaultDirectProfile(
+      config: config,
+      profiles: profiles,
       isWindows: Platform.isWindows,
-      hasProfiles: profiles.isNotEmpty,
-    )) {
-      final profile = Profile.normal(
-        label: defaultDirectProfileLabel,
-      ).copyWith(autoUpdate: false, lastUpdateDate: DateTime.now());
-      final file = await profile.file;
-      try {
-        await file.safeWriteAsString(defaultDirectProfileYaml);
-        await database.profiles.put(profile.toCompanion());
-        final nextConfig = config.copyWith(currentProfileId: profile.id);
-        final saved = await preferences.saveConfig(nextConfig);
-        if (!saved) {
-          throw StateError('failed to persist default profile selection');
-        }
-        config = nextConfig;
-        profiles = [profile];
-      } catch (_) {
-        await database.profilesDao.setAll(const []);
-        await file.safeDelete();
-        rethrow;
-      }
-    }
+    );
+    config = defaultProfile.config;
+    profiles = defaultProfile.profiles;
     final appState = AppState(
       brightness: WidgetsBinding.instance.platformDispatcher.platformBrightness,
       version: version,
