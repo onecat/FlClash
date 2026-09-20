@@ -112,7 +112,7 @@ class Preferences {
   Future<bool> get isInit async => await _storeCompleter.future != null;
 
   Preferences._internal() {
-    if (appPath.isPortable) {
+    if (Platform.isWindows && appPath.isPortable) {
       appPath.sharedPreferencesPath
           .then((path) => _JsonPreferenceStore.open(File(path)))
           .then((value) => _storeCompleter.complete(value))
