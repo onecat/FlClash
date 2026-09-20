@@ -47,6 +47,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Show default profile formatter output
+        run: dart format --output=show lib/bootstrap.dart test/common/default_profile_test.dart
+
       - name: Check format
         run: dart format --output=none --set-exit-if-changed lib test tool plugins setup.dart
 
