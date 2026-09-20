@@ -85,7 +85,9 @@ install(FILES "EnableLoopback.exe" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
 
 # Release ZIPs are portable by default. The installer explicitly excludes this
 # marker so installed builds keep using the normal application support folder.
-install(CODE "\n  file(WRITE \\"${INSTALL_BUNDLE_LIB_DIR}/portable.flag\\" \\"portable\\\\n\\")\n" CONFIGURATIONS Release COMPONENT Runtime)
+install(CODE "
+  file(WRITE \"${INSTALL_BUNDLE_LIB_DIR}/portable.flag\" \"portable\\n\")
+" CONFIGURATIONS Release COMPONENT Runtime)
 
 # Ship the MSVC runtime next to the executable. Neither the installer nor the
 # portable archive can assume a machine already carries VCRedist, and without
