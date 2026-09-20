@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:fl_clash/common/boot_record.dart';
 import 'package:fl_clash/common/common.dart';
@@ -8,15 +9,119 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+abstract class _PreferenceStore {
+  int? getInt(String key);
+  String? getString(String key);
+  Future<bool> setInt(String key, int value);
+  Future<bool> setString(String key, String value);
+  Future<bool> remove(String key);
+  Future<bool> clear();
+}
+
+class _SharedPreferencesStore implements _PreferenceStore {
+  final SharedPreferences _preferences;
+
+  _SharedPreferencesStore(this._preferences);
+
+  @override
+  int? getInt(String key) => _preferences.getInt(key);
+
+  @override
+  String? getString(String key) => _preferences.getString(key);
+
+  @override
+  Future<bool> setInt(String key, int value) => _preferences.setInt(key, value);
+
+  @override
+  Future<bool> setString(String key, String value) =>
+      _preferences.setString(key, value);
+
+  @override
+  Future<bool> remove(String key) => _preferences.remove(key);
+
+  @override
+  Future<bool> clear() => _preferences.clear();
+}
+
+class _JsonPreferenceStore implements _PreferenceStore {
+  final File file;
+  final Map<String, Object?> _values;
+
+  _JsonPreferenceStore._(this.file, this._values);
+
+  static Future<_JsonPreferenceStore> open(File file) async {
+    if (!await file.exists()) {
+      return _JsonPreferenceStore._(file, <String, Object?>{});
+    }
+    final raw = await file.readAsString();
+    if (raw.trim().isEmpty) {
+      return _JsonPreferenceStore._(file, <String, Object?>{});
+    }
+    final decoded = json.decode(raw);
+    if (decoded is! Map) {
+      throw const FormatException('portable preferences must be a JSON object');
+    }
+    return _JsonPreferenceStore._(
+      file,
+      decoded.map((key, value) => MapEntry(key.toString(), value)),
+    );
+  }
+
+  Future<bool> _flush() async {
+    await file.parent.create(recursive: true);
+    await file.writeAsString(json.encode(_values), flush: true);
+    return true;
+  }
+
+  @override
+  int? getInt(String key) => _values[key] is int ? _values[key] as int : null;
+
+  @override
+  String? getString(String key) =>
+      _values[key] is String ? _values[key] as String : null;
+
+  @override
+  Future<bool> setInt(String key, int value) async {
+    _values[key] = value;
+    return _flush();
+  }
+
+  @override
+  Future<bool> setString(String key, String value) async {
+    _values[key] = value;
+    return _flush();
+  }
+
+  @override
+  Future<bool> remove(String key) async {
+    _values.remove(key);
+    return _flush();
+  }
+
+  @override
+  Future<bool> clear() async {
+    _values.clear();
+    return _flush();
+  }
+}
+
 class Preferences {
   static Preferences? _instance;
-  Completer<SharedPreferences?> sharedPreferencesCompleter = Completer();
+  Completer<_PreferenceStore?> sharedPreferencesCompleter = Completer();
 
   Future<bool> get isInit async =>
       await sharedPreferencesCompleter.future != null;
 
   Preferences._internal() {
+    if (appPath.isPortable) {
+      appPath.sharedPreferencesPath
+          .then((path) => _JsonPreferenceStore.open(File(path)))
+          .then((value) => sharedPreferencesCompleter.complete(value))
+          .onError((_, _) => sharedPreferencesCompleter.complete(null));
+      return;
+    }
     SharedPreferences.getInstance()
+        .then((value) => _SharedPreferencesStore(value))
         .then((value) => sharedPreferencesCompleter.complete(value))
         .onError((_, _) => sharedPreferencesCompleter.complete(null));
   }
