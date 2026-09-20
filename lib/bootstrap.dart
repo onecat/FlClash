@@ -99,6 +99,32 @@ class Bootstrap {
       config = config.copyWith(currentProfileId: null);
       await preferences.saveConfig(config);
     }
+    var profiles = await database.profilesDao.query().get();
+    if (shouldCreateDefaultDirectProfile(
+      isWindows: Platform.isWindows,
+      hasProfiles: profiles.isNotEmpty,
+    )) {
+      final profile = Profile.normal(label: defaultDirectProfileLabel).copyWith(
+        autoUpdate: false,
+        lastUpdateDate: DateTime.now(),
+      );
+      final file = await profile.file;
+      try {
+        await file.safeWriteAsString(defaultDirectProfileYaml);
+        await database.profiles.put(profile.toCompanion());
+        final nextConfig = config.copyWith(currentProfileId: profile.id);
+        final saved = await preferences.saveConfig(nextConfig);
+        if (!saved) {
+          throw StateError('failed to persist default profile selection');
+        }
+        config = nextConfig;
+        profiles = [profile];
+      } catch (_) {
+        await database.profilesDao.setAll(const []);
+        await file.safeDelete();
+        rethrow;
+      }
+    }
     final appState = AppState(
       brightness: WidgetsBinding.instance.platformDispatcher.platformBrightness,
       version: version,
@@ -122,7 +148,6 @@ class Bootstrap {
           darkSeed: dynamicColor.darkSeed,
           accentColor: dynamicColor.accentColor,
         );
-    final profiles = await database.profilesDao.query().get();
     container.read(profilesProvider.notifier).setAndReorder(profiles);
     await AppLocalizations.load(
       getLocaleForString(config.appSettingProps.locale) ??
