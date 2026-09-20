@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:synchronized/synchronized.dart';
 
 import 'file.dart';
 
@@ -49,7 +48,7 @@ class SharedPreferencesStore implements PreferenceStore {
 class JsonPreferenceStore implements PreferenceStore {
   final File file;
   final Map<String, Object?> _values;
-  final Lock _writeLock = Lock();
+  Future<void> _writeQueue = Future<void>.value();
 
   JsonPreferenceStore._(this.file, this._values);
 
@@ -60,15 +59,15 @@ class JsonPreferenceStore implements PreferenceStore {
     if (await file.exists()) {
       try {
         final values = await _readValues(file);
-        await backup.safeDelete();
-        await temp.safeDelete();
+        await _bestEffortDelete(backup);
+        await _bestEffortDelete(temp);
         return JsonPreferenceStore._(file, values);
       } catch (primaryError, primaryStackTrace) {
         if (await backup.exists()) {
           try {
             final values = await _readValues(backup);
             await _restoreBackup(file, backup);
-            await temp.safeDelete();
+            await _bestEffortDelete(temp);
             return JsonPreferenceStore._(file, values);
           } catch (_) {
             Error.throwWithStackTrace(primaryError, primaryStackTrace);
@@ -81,11 +80,11 @@ class JsonPreferenceStore implements PreferenceStore {
     if (await backup.exists()) {
       final values = await _readValues(backup);
       await _restoreBackup(file, backup);
-      await temp.safeDelete();
+      await _bestEffortDelete(temp);
       return JsonPreferenceStore._(file, values);
     }
 
-    await temp.safeDelete();
+    await _bestEffortDelete(temp);
     return JsonPreferenceStore._(file, <String, Object?>{});
   }
 
@@ -106,6 +105,14 @@ class JsonPreferenceStore implements PreferenceStore {
     await backup.rename(file.path);
   }
 
+  static Future<void> _bestEffortDelete(File file) async {
+    try {
+      await file.safeDelete();
+    } on FileSystemException {
+      return;
+    }
+  }
+
   Future<void> _atomicWrite(String payload) async {
     await file.parent.create(recursive: true);
     final temp = File('${file.path}.tmp');
@@ -120,21 +127,39 @@ class JsonPreferenceStore implements PreferenceStore {
         movedOriginal = true;
       }
       await temp.rename(file.path);
-      await backup.safeDelete();
-    } catch (_) {
+    } catch (error, stackTrace) {
       if (!await file.exists() && movedOriginal && await backup.exists()) {
-        await backup.rename(file.path);
+        try {
+          await backup.rename(file.path);
+        } on FileSystemException {
+          // The backup remains in place for recovery on the next launch.
+        }
       }
-      await temp.safeDelete();
-      rethrow;
+      await _bestEffortDelete(temp);
+      Error.throwWithStackTrace(error, stackTrace);
     }
+    await _bestEffortDelete(backup);
   }
 
-  Future<bool> _flush() {
-    return _writeLock.synchronized(() async {
-      await _atomicWrite(json.encode(_values));
-      return true;
+  Future<bool> _update(void Function() mutate) {
+    final operation = _writeQueue.then((_) async {
+      final previous = Map<String, Object?>.from(_values);
+      mutate();
+      try {
+        await _atomicWrite(json.encode(_values));
+        return true;
+      } catch (_) {
+        _values
+          ..clear()
+          ..addAll(previous);
+        rethrow;
+      }
     });
+    _writeQueue = operation.then<void>(
+      (_) {},
+      onError: (Object error) {},
+    );
+    return operation;
   }
 
   @override
@@ -145,26 +170,28 @@ class JsonPreferenceStore implements PreferenceStore {
       _values[key] is String ? _values[key] as String : null;
 
   @override
-  Future<bool> setInt(String key, int value) async {
-    _values[key] = value;
-    return _flush();
+  Future<bool> setInt(String key, int value) {
+    return _update(() {
+      _values[key] = value;
+    });
   }
 
   @override
-  Future<bool> setString(String key, String value) async {
-    _values[key] = value;
-    return _flush();
+  Future<bool> setString(String key, String value) {
+    return _update(() {
+      _values[key] = value;
+    });
   }
 
   @override
-  Future<bool> remove(String key) async {
-    _values.remove(key);
-    return _flush();
+  Future<bool> remove(String key) {
+    return _update(() {
+      _values.remove(key);
+    });
   }
 
   @override
-  Future<bool> clear() async {
-    _values.clear();
-    return _flush();
+  Future<bool> clear() {
+    return _update(_values.clear);
   }
 }

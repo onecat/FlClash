@@ -21,6 +21,8 @@ rules:
   - MATCH,DIRECT
 ''';
 
+const _initializationMarker = 'initialized\n';
+
 abstract interface class DefaultProfileStore {
   Future<bool> get isAvailable;
 
@@ -49,7 +51,7 @@ Future<Config> ensureDefaultDirectProfile(
   }
 
   final marker = await store.markerFile();
-  if (await marker.exists()) {
+  if (await _hasInitializationMarker(marker)) {
     return config;
   }
 
@@ -65,6 +67,7 @@ Future<Config> ensureDefaultDirectProfile(
   );
   final file = await store.profileFile(profile);
   var profileSaveAttempted = false;
+  var configSaveAttempted = false;
 
   try {
     await file.safeWriteAsString(defaultDirectProfileYaml);
@@ -72,6 +75,7 @@ Future<Config> ensureDefaultDirectProfile(
     await store.saveProfile(profile);
 
     final nextConfig = config.copyWith(currentProfileId: profile.id);
+    configSaveAttempted = true;
     if (!await store.saveConfig(nextConfig)) {
       throw StateError('failed to persist default profile selection');
     }
@@ -79,6 +83,24 @@ Future<Config> ensureDefaultDirectProfile(
     await _writeInitializationMarker(marker);
     return nextConfig;
   } catch (error, stackTrace) {
+    await marker.safeDelete();
+
+    if (configSaveAttempted) {
+      try {
+        if (!await store.saveConfig(config)) {
+          commonPrint.log(
+            'Failed to roll back the default profile selection',
+            logLevel: LogLevel.warning,
+          );
+        }
+      } catch (cleanupError) {
+        commonPrint.log(
+          'Failed to roll back the default profile selection: $cleanupError',
+          logLevel: LogLevel.warning,
+        );
+      }
+    }
+
     if (profileSaveAttempted) {
       try {
         await store.removeProfile(profile.id);
@@ -89,6 +111,7 @@ Future<Config> ensureDefaultDirectProfile(
         );
       }
     }
+
     try {
       await file.safeDelete();
     } catch (cleanupError) {
@@ -97,17 +120,20 @@ Future<Config> ensureDefaultDirectProfile(
         logLevel: LogLevel.warning,
       );
     }
+
     Error.throwWithStackTrace(error, stackTrace);
   }
 }
 
-Future<void> _writeInitializationMarker(File marker) async {
+Future<bool> _hasInitializationMarker(File marker) async {
   try {
-    await marker.safeWriteAsString('initialized\n');
-  } catch (error) {
-    commonPrint.log(
-      'Failed to persist the default profile initialization marker: $error',
-      logLevel: LogLevel.warning,
-    );
+    return await marker.readAsString() == _initializationMarker;
+  } on FileSystemException {
+    return false;
   }
+}
+
+Future<void> _writeInitializationMarker(File marker) async {
+  await marker.parent.create(recursive: true);
+  await marker.writeAsString(_initializationMarker, flush: true);
 }

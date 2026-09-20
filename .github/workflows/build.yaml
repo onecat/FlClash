@@ -44,8 +44,16 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Check format
-        run: dart format --output=none --set-exit-if-changed lib test tool plugins setup.dart
+      - name: Format validation workspace
+        shell: bash
+        run: |
+          dart format lib test tool plugins setup.dart
+          if ! git diff --quiet -- lib test tool plugins setup.dart; then
+            echo "FORMAT_DRIFT=true" >> "$GITHUB_ENV"
+            echo "::warning::Dart formatter changed tracked files"
+            git diff --check -- lib test tool plugins setup.dart
+            git diff -- lib test tool plugins setup.dart
+          fi
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos
@@ -63,6 +71,15 @@ jobs:
 
       - name: Check coverage
         run: dart run tool/check_coverage.dart coverage/lcov.info 75
+
+      - name: Enforce format
+        if: always()
+        shell: bash
+        run: |
+          if [[ "${FORMAT_DRIFT:-false}" == "true" ]]; then
+            echo "Dart formatter changed tracked files." >&2
+            exit 1
+          fi
 
   plugins:
     name: Plugins

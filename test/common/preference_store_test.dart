@@ -67,6 +67,20 @@ void main() {
     expect(await backup.exists(), isFalse);
   });
 
+  test('preserves call order across clear and set operations', () async {
+    final store = await JsonPreferenceStore.open(file);
+    await store.setInt('old', 1);
+
+    await Future.wait([
+      store.clear(),
+      store.setInt('new', 2),
+    ]);
+
+    final reopened = await JsonPreferenceStore.open(file);
+    expect(reopened.getInt('old'), isNull);
+    expect(reopened.getInt('new'), 2);
+  });
+
   test('rejects a non-object payload without a usable backup', () async {
     await file.writeAsString('[]', flush: true);
 

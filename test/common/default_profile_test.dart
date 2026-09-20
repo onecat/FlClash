@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/common/default_profile.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -74,7 +73,7 @@ void main() {
     final marker = await store.markerFile();
 
     expect(config.currentProfileId, 7);
-    expect(store.savedConfig?.currentProfileId, 7);
+    expect(store.savedConfigs.single.currentProfileId, 7);
     expect(store.profiles.map((profile) => profile.id), [7]);
     expect(store.profiles.single.autoUpdate, isFalse);
     expect(store.createCount, 1);
@@ -90,7 +89,7 @@ void main() {
       store: store,
     );
     store.profiles.clear();
-    store.savedConfig = null;
+    store.savedConfigs.clear();
 
     final config = await ensureDefaultDirectProfile(
       const Config(themeProps: defaultThemeProps),
@@ -101,13 +100,13 @@ void main() {
     expect(config.currentProfileId, isNull);
     expect(store.profiles, isEmpty);
     expect(store.createCount, 1);
-    expect(store.savedConfig, isNull);
+    expect(store.savedConfigs, isEmpty);
   });
 
   test('rolls back only new profile when config saving fails', () async {
     final store = _FakeDefaultProfileStore(
       root,
-      saveConfigResult: false,
+      saveConfigResults: [false, true],
       injectUnrelatedProfileOnSaveFailure: true,
     );
 
@@ -126,8 +125,32 @@ void main() {
 
     expect(store.removedIds, [7]);
     expect(store.profiles.map((profile) => profile.id), [99]);
+    expect(store.savedConfigs.map((config) => config.currentProfileId), [
+      7,
+      null,
+    ]);
     expect(await failedFile.exists(), isFalse);
     expect(await marker.exists(), isFalse);
+  });
+
+  test('marker write failure rolls back the whole initialization', () async {
+    final store = _FakeDefaultProfileStore(root, failMarkerWrite: true);
+
+    await expectLater(
+      ensureDefaultDirectProfile(
+        const Config(themeProps: defaultThemeProps),
+        isWindows: true,
+        store: store,
+      ),
+      throwsA(isA<FileSystemException>()),
+    );
+
+    expect(store.removedIds, [7]);
+    expect(store.profiles, isEmpty);
+    expect(store.savedConfigs.map((config) => config.currentProfileId), [
+      7,
+      null,
+    ]);
   });
 }
 
@@ -142,21 +165,23 @@ Profile _profile(int id, String label) {
 class _FakeDefaultProfileStore implements DefaultProfileStore {
   final Directory root;
   final bool available;
-  final bool saveConfigResult;
+  final List<bool> saveConfigResults;
   final bool injectUnrelatedProfileOnSaveFailure;
+  final bool failMarkerWrite;
   final List<Profile> profiles = [];
   final List<int> removedIds = [];
+  final List<Config> savedConfigs = [];
 
   int loadCount = 0;
   int createCount = 0;
-  Config? savedConfig;
 
   _FakeDefaultProfileStore(
     this.root, {
     this.available = true,
-    this.saveConfigResult = true,
+    List<bool>? saveConfigResults,
     this.injectUnrelatedProfileOnSaveFailure = false,
-  });
+    this.failMarkerWrite = false,
+  }) : saveConfigResults = saveConfigResults ?? [true];
 
   @override
   Future<bool> get isAvailable async => available;
@@ -194,15 +219,27 @@ class _FakeDefaultProfileStore implements DefaultProfileStore {
 
   @override
   Future<bool> saveConfig(Config config) async {
-    savedConfig = config;
-    if (!saveConfigResult && injectUnrelatedProfileOnSaveFailure) {
+    savedConfigs.add(config);
+    final index = savedConfigs.length - 1;
+    final result = index < saveConfigResults.length
+        ? saveConfigResults[index]
+        : saveConfigResults.last;
+    if (!result && injectUnrelatedProfileOnSaveFailure) {
       profiles.add(_profile(99, 'unrelated'));
     }
-    return saveConfigResult;
+    return result;
   }
 
   @override
   Future<File> markerFile() async {
+    if (failMarkerWrite) {
+      final blocker = File(
+        '${root.path}${Platform.pathSeparator}marker-parent',
+      )..writeAsStringSync('blocked');
+      return File(
+        '${blocker.path}${Platform.pathSeparator}profile-initialized.flag',
+      );
+    }
     return File(
       '${root.path}${Platform.pathSeparator}profile-initialized.flag',
     );
