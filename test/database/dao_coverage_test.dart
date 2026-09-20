@@ -64,7 +64,7 @@ void main() {
       await database.profilesDao.setAll([replacement]);
 
       expect(await database.profilesDao.query().get(), [replacement]);
-      expect(await database.profiles.remove((table) => table.id.equals(1)), 1);
+      expect(await database.profilesDao.removeById(1), 1);
       expect(await database.profiles.count.getSingle(), 0);
     },
   );

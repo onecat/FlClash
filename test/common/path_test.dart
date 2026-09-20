@@ -178,9 +178,8 @@ void main() {
 
   group('portable data directory preparation', () {
     test('creates writable userdata and cache directories', () {
-      final executableDir = Directory(
-        join(root.path, 'portable-success'),
-      )..createSync(recursive: true);
+      final executableDir = Directory(join(root.path, 'portable-success'))
+        ..createSync(recursive: true);
 
       final directories = AppPath.preparePortableDirectories(
         executableDir.path,
@@ -191,9 +190,8 @@ void main() {
     });
 
     test('reports a clear error when userdata cannot be created', () {
-      final executableDir = Directory(
-        join(root.path, 'portable-failure'),
-      )..createSync(recursive: true);
+      final executableDir = Directory(join(root.path, 'portable-failure'))
+        ..createSync(recursive: true);
       File(join(executableDir.path, 'userdata')).writeAsStringSync('blocked');
 
       expect(

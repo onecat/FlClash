@@ -289,6 +289,48 @@ jobs:
       - name: Build Windows portable package
         run: dart setup.dart windows --hide-about --hide-disclaimer -v
 
+      - name: Verify Windows portable archive
+        shell: pwsh
+        run: |
+          $zipFiles = @(Get-ChildItem -Path ./dist -Filter *.zip -File)
+          if ($zipFiles.Count -ne 1) {
+            throw "Expected exactly one ZIP in dist, found $($zipFiles.Count)."
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($zipFiles[0].FullName)
+          try {
+            $entries = @($archive.Entries | ForEach-Object { $_.FullName })
+            $appEntry = $entries | Where-Object {
+              $_ -match '(^|/)FlClash[.]exe$'
+            } | Select-Object -First 1
+            if (-not $appEntry) {
+              throw 'FlClash.exe is missing from the portable ZIP.'
+            }
+
+            $prefix = $appEntry.Substring(
+              0,
+              $appEntry.Length - 'FlClash.exe'.Length
+            )
+            foreach ($required in @(
+              'FlClash.exe',
+              'FlClashCore.exe',
+              'FlClashHelperService.exe',
+              'manifest.json',
+              'portable.flag'
+            )) {
+              if ($entries -notcontains "$prefix$required") {
+                throw "$required is missing next to FlClash.exe."
+              }
+            }
+
+            if ($entries | Where-Object { $_ -match '(^|/)userdata/' }) {
+              throw 'Fresh portable ZIP must not contain userdata.'
+            }
+          } finally {
+            $archive.Dispose()
+          }
+
       - name: Upload Windows portable artifact
         uses: actions/upload-artifact@v4
         with:

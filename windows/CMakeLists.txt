@@ -86,7 +86,7 @@ install(FILES "EnableLoopback.exe" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
 # Release ZIPs are portable by default. The installer explicitly excludes this
 # marker so installed builds keep using the normal application support folder.
 install(CODE "
-  if(\"${CMAKE_INSTALL_CONFIG_NAME}\" STREQUAL \"Release\")
+  if(\"\${CMAKE_INSTALL_CONFIG_NAME}\" STREQUAL \"Release\")
     file(WRITE \"${INSTALL_BUNDLE_LIB_DIR}/portable.flag\" \"portable\\n\")
   endif()
 " COMPONENT Runtime)

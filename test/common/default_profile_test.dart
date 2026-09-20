@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:fl_clash/common/default_profile.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yaml/yaml.dart';
 
 void main() {
   late Directory root;
@@ -17,12 +18,22 @@ void main() {
     }
   });
 
+  test('default YAML parses as a direct-only profile', () {
+    final yaml = loadYaml(defaultDirectProfileYaml) as YamlMap;
+
+    expect(yaml['mode'], 'rule');
+    expect(yaml['proxies'], isEmpty);
+    expect(yaml['proxy-groups'], isEmpty);
+    expect(yaml['rules'], ['MATCH,DIRECT']);
+  });
+
   test('does nothing outside Windows', () async {
     final store = _FakeDefaultProfileStore(root);
 
     final config = await ensureDefaultDirectProfile(
       const Config(themeProps: defaultThemeProps),
       isWindows: false,
+      isFreshInstall: true,
       store: store,
     );
 
@@ -37,12 +48,30 @@ void main() {
     final config = await ensureDefaultDirectProfile(
       const Config(themeProps: defaultThemeProps),
       isWindows: true,
+      isFreshInstall: true,
       store: store,
     );
 
     expect(config.currentProfileId, isNull);
     expect(store.loadCount, 0);
     expect(store.createCount, 0);
+  });
+
+  test('does not create for an existing install with no profiles', () async {
+    final store = _FakeDefaultProfileStore(root);
+
+    final config = await ensureDefaultDirectProfile(
+      const Config(themeProps: defaultThemeProps),
+      isWindows: true,
+      isFreshInstall: false,
+      store: store,
+    );
+    final marker = await store.markerFile();
+
+    expect(config.currentProfileId, isNull);
+    expect(store.createCount, 0);
+    expect(store.profiles, isEmpty);
+    expect(await marker.exists(), isTrue);
   });
 
   test('marks existing profiles initialized', () async {
@@ -52,6 +81,7 @@ void main() {
     final config = await ensureDefaultDirectProfile(
       const Config(themeProps: defaultThemeProps, currentProfileId: 99),
       isWindows: true,
+      isFreshInstall: true,
       store: store,
     );
     final marker = await store.markerFile();
@@ -61,15 +91,30 @@ void main() {
     expect(await marker.exists(), isTrue);
   });
 
+  test('existing install survives marker write failure', () async {
+    final store = _FakeDefaultProfileStore(root, failMarkerWrite: true);
+
+    final config = await ensureDefaultDirectProfile(
+      const Config(themeProps: defaultThemeProps),
+      isWindows: true,
+      isFreshInstall: false,
+      store: store,
+    );
+
+    expect(config.currentProfileId, isNull);
+    expect(store.createCount, 0);
+  });
+
   test('creates and selects direct profile on first init', () async {
     final store = _FakeDefaultProfileStore(root);
 
     final config = await ensureDefaultDirectProfile(
       const Config(themeProps: defaultThemeProps),
       isWindows: true,
+      isFreshInstall: true,
       store: store,
     );
-    final profileFile = await store.profileFile(store.profiles.single);
+    final profileFile = await store.profileFile(store.profiles.single.id);
     final marker = await store.markerFile();
 
     expect(config.currentProfileId, 7);
@@ -86,6 +131,7 @@ void main() {
     await ensureDefaultDirectProfile(
       const Config(themeProps: defaultThemeProps),
       isWindows: true,
+      isFreshInstall: true,
       store: store,
     );
     store.profiles.clear();
@@ -94,6 +140,7 @@ void main() {
     final config = await ensureDefaultDirectProfile(
       const Config(themeProps: defaultThemeProps),
       isWindows: true,
+      isFreshInstall: true,
       store: store,
     );
 
@@ -114,13 +161,12 @@ void main() {
       ensureDefaultDirectProfile(
         const Config(themeProps: defaultThemeProps),
         isWindows: true,
+        isFreshInstall: true,
         store: store,
       ),
       throwsA(isA<StateError>()),
     );
-    final failedFile = await store.profileFile(
-      _profile(7, defaultDirectProfileLabel),
-    );
+    final failedFile = await store.profileFile(7);
     final marker = await store.markerFile();
 
     expect(store.removedIds, [7]);
@@ -130,27 +176,110 @@ void main() {
       null,
     ]);
     expect(await failedFile.exists(), isFalse);
-    expect(await marker.exists(), isFalse);
+    expect(await marker.readAsString(), 'pending:7\n');
   });
 
-  test('marker write failure rolls back the whole initialization', () async {
+  test('marker write failure happens before profile mutation', () async {
     final store = _FakeDefaultProfileStore(root, failMarkerWrite: true);
 
     await expectLater(
       ensureDefaultDirectProfile(
         const Config(themeProps: defaultThemeProps),
         isWindows: true,
+        isFreshInstall: true,
         store: store,
       ),
       throwsA(isA<FileSystemException>()),
     );
 
-    expect(store.removedIds, [7]);
+    expect(store.removedIds, isEmpty);
     expect(store.profiles, isEmpty);
-    expect(store.savedConfigs.map((config) => config.currentProfileId), [
-      7,
-      null,
-    ]);
+    expect(store.savedConfigs, isEmpty);
+  });
+
+  test('pending profile recovers an interrupted selection', () async {
+    final store = _FakeDefaultProfileStore(root)
+      ..profiles.add(_profile(7, defaultDirectProfileLabel));
+    final marker = await store.markerFile();
+    await marker.writeAsString('pending:7\n');
+
+    final config = await ensureDefaultDirectProfile(
+      const Config(themeProps: defaultThemeProps),
+      isWindows: true,
+      isFreshInstall: false,
+      store: store,
+    );
+
+    expect(config.currentProfileId, 7);
+    expect(store.savedConfigs.single.currentProfileId, 7);
+    expect(store.createCount, 0);
+    expect(await marker.readAsString(), 'initialized\n');
+  });
+
+  test('partial marker retries initialization', () async {
+    final store = _FakeDefaultProfileStore(root);
+    final marker = await store.markerFile();
+    await marker.writeAsString('partial');
+
+    final config = await ensureDefaultDirectProfile(
+      const Config(themeProps: defaultThemeProps),
+      isWindows: true,
+      isFreshInstall: false,
+      store: store,
+    );
+
+    expect(config.currentProfileId, 7);
+    expect(store.createCount, 1);
+    expect(await marker.readAsString(), 'initialized\n');
+  });
+
+  test('pending orphan file is removed before retrying', () async {
+    final store = _FakeDefaultProfileStore(root, nextProfileId: 8);
+    final marker = await store.markerFile();
+    await marker.writeAsString('pending:7\n');
+    final orphan = await store.profileFile(7);
+    await orphan.create(recursive: true);
+    await orphan.writeAsString('orphan');
+
+    final config = await ensureDefaultDirectProfile(
+      const Config(themeProps: defaultThemeProps),
+      isWindows: true,
+      isFreshInstall: false,
+      store: store,
+    );
+
+    expect(config.currentProfileId, 8);
+    expect(await orphan.exists(), isFalse);
+    expect(store.profiles.single.id, 8);
+  });
+
+  test('pending marker retries a failed first initialization', () async {
+    final store = _FakeDefaultProfileStore(
+      root,
+      saveConfigResults: [false, true, true],
+    );
+
+    await expectLater(
+      ensureDefaultDirectProfile(
+        const Config(themeProps: defaultThemeProps),
+        isWindows: true,
+        isFreshInstall: true,
+        store: store,
+      ),
+      throwsA(isA<StateError>()),
+    );
+
+    final config = await ensureDefaultDirectProfile(
+      const Config(themeProps: defaultThemeProps),
+      isWindows: true,
+      isFreshInstall: false,
+      store: store,
+    );
+
+    expect(config.currentProfileId, 8);
+    expect(store.createCount, 2);
+    final marker = await store.markerFile();
+    expect(await marker.readAsString(), 'initialized\n');
   });
 }
 
@@ -174,6 +303,7 @@ class _FakeDefaultProfileStore implements DefaultProfileStore {
 
   int loadCount = 0;
   int createCount = 0;
+  int nextProfileId;
 
   _FakeDefaultProfileStore(
     this.root, {
@@ -181,6 +311,7 @@ class _FakeDefaultProfileStore implements DefaultProfileStore {
     List<bool>? saveConfigResults,
     this.injectUnrelatedProfileOnSaveFailure = false,
     this.failMarkerWrite = false,
+    this.nextProfileId = 7,
   }) : saveConfigResults = saveConfigResults ?? [true];
 
   @override
@@ -195,14 +326,14 @@ class _FakeDefaultProfileStore implements DefaultProfileStore {
   @override
   Profile createProfile() {
     createCount++;
-    return _profile(7, defaultDirectProfileLabel);
+    return _profile(nextProfileId++, defaultDirectProfileLabel);
   }
 
   @override
-  Future<File> profileFile(Profile profile) async {
+  Future<File> profileFile(int profileId) async {
     return File(
       '${root.path}${Platform.pathSeparator}profiles'
-      '${Platform.pathSeparator}${profile.id}.yaml',
+      '${Platform.pathSeparator}$profileId.yaml',
     );
   }
 
@@ -233,9 +364,8 @@ class _FakeDefaultProfileStore implements DefaultProfileStore {
   @override
   Future<File> markerFile() async {
     if (failMarkerWrite) {
-      final blocker = File(
-        '${root.path}${Platform.pathSeparator}marker-parent',
-      )..writeAsStringSync('blocked');
+      final blocker = File('${root.path}${Platform.pathSeparator}marker-parent')
+        ..writeAsStringSync('blocked');
       return File(
         '${blocker.path}${Platform.pathSeparator}profile-initialized.flag',
       );

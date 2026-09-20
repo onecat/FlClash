@@ -12,15 +12,36 @@ void main() {
         configMap: configMap,
         version: Migration.currentVersion,
       );
+      bool? observedFreshInstall;
       final migration = Migration(
         store: store,
-        finalize: (config) async => config.copyWith(currentProfileId: 77),
+        finalize: (config, {required bool isFreshInstall}) async {
+          observedFreshInstall = isFreshInstall;
+          return config.copyWith(currentProfileId: 77);
+        },
       );
 
       final config = await migration.run();
 
       expect(config.currentProfileId, 77);
+      expect(observedFreshInstall, isFalse);
       expect(store.events, ['getConfigMap', 'getVersion']);
+    });
+
+    test('reports an empty version-zero store as a fresh install', () async {
+      final store = _FakeMigrationStore(configMap: null, version: 0);
+      bool? observedFreshInstall;
+      final migration = Migration(
+        store: store,
+        finalize: (config, {required bool isFreshInstall}) async {
+          observedFreshInstall = isFreshInstall;
+          return config;
+        },
+      );
+
+      await migration.run();
+
+      expect(observedFreshInstall, isTrue);
     });
 
     test('returns current config without rewriting storage', () async {
