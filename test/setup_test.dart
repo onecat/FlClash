@@ -22,25 +22,18 @@ void main() {
     });
 
     test('Flutter build environment includes UI visibility flags', () {
-      expect(
-        setup.createBuildEnvironment('dev'),
-        {
-          'APP_ENV': 'dev',
-          'HIDE_ABOUT': false,
-          'HIDE_DISCLAIMER': false,
-        },
-      );
+      expect(setup.createBuildEnvironment('dev'), {
+        'APP_ENV': 'dev',
+        'HIDE_ABOUT': false,
+        'HIDE_DISCLAIMER': false,
+      });
       expect(
         setup.createBuildEnvironment(
           'stable',
           hideAbout: true,
           hideDisclaimer: true,
         ),
-        {
-          'APP_ENV': 'stable',
-          'HIDE_ABOUT': true,
-          'HIDE_DISCLAIMER': true,
-        },
+        {'APP_ENV': 'stable', 'HIDE_ABOUT': true, 'HIDE_DISCLAIMER': true},
       );
     });
 
