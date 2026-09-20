@@ -5,24 +5,15 @@ void main() {
   group('default direct profile', () {
     test('is created only for an empty Windows profile store', () {
       expect(
-        shouldCreateDefaultDirectProfile(
-          isWindows: true,
-          hasProfiles: false,
-        ),
+        shouldCreateDefaultDirectProfile(isWindows: true, hasProfiles: false),
         isTrue,
       );
       expect(
-        shouldCreateDefaultDirectProfile(
-          isWindows: true,
-          hasProfiles: true,
-        ),
+        shouldCreateDefaultDirectProfile(isWindows: true, hasProfiles: true),
         isFalse,
       );
       expect(
-        shouldCreateDefaultDirectProfile(
-          isWindows: false,
-          hasProfiles: false,
-        ),
+        shouldCreateDefaultDirectProfile(isWindows: false, hasProfiles: false),
         isFalse,
       );
     });
