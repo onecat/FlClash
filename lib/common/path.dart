@@ -33,12 +33,9 @@ class AppPath {
   AppPath._internal() {
     appDirPath = join(dirname(Platform.resolvedExecutable));
     if (isPortable) {
-      final portableDataDir = Directory(join(executableDirPath, 'userdata'));
-      final portableCacheDir = Directory(join(portableDataDir.path, 'cache'));
-      portableDataDir.createSync(recursive: true);
-      portableCacheDir.createSync(recursive: true);
-      dataDir.complete(portableDataDir);
-      cacheDir.complete(portableCacheDir);
+      final directories = preparePortableDirectories(executableDirPath);
+      dataDir.complete(directories.data);
+      cacheDir.complete(directories.cache);
     } else {
       supportDirectory().then((value) {
         dataDir.complete(value);
@@ -55,6 +52,34 @@ class AppPath {
   factory AppPath() {
     _instance ??= AppPath._internal();
     return _instance!;
+  }
+
+  @visibleForTesting
+  static ({Directory data, Directory cache}) preparePortableDirectories(
+    String executableDirPath,
+  ) {
+    final data = Directory(join(executableDirPath, 'userdata'));
+    final cache = Directory(join(data.path, 'cache'));
+    final probe = File(join(data.path, '.flclash-write-test-$pid'));
+    try {
+      data.createSync(recursive: true);
+      cache.createSync(recursive: true);
+      probe.writeAsStringSync('ok', flush: true);
+    } on FileSystemException catch (error) {
+      throw FileSystemException(
+        'Portable mode requires a writable application directory. '
+        'Move FlClash to a folder your account can write to.',
+        data.path,
+        error.osError,
+      );
+    } finally {
+      try {
+        if (probe.existsSync()) {
+          probe.deleteSync();
+        }
+      } catch (_) {}
+    }
+    return (data: data, cache: cache);
   }
 
   bool get isPortable =>
@@ -124,6 +149,10 @@ class AppPath {
       directory.path,
       isPortable ? 'preferences.json' : 'shared_preferences.json',
     );
+  }
+
+  Future<String> get defaultProfileMarkerPath async {
+    return join(await homeDirPath, 'profile-initialized.flag');
   }
 
   Future<String> get profilesPath async {

@@ -175,4 +175,37 @@ void main() {
 
     await expectLater(appPath.ensureProviderDirs(9), completes);
   });
+
+  group('portable data directory preparation', () {
+    test('creates writable userdata and cache directories', () {
+      final executableDir = Directory(
+        join(root.path, 'portable-success'),
+      )..createSync(recursive: true);
+
+      final directories = AppPath.preparePortableDirectories(
+        executableDir.path,
+      );
+
+      expect(directories.data.existsSync(), isTrue);
+      expect(directories.cache.existsSync(), isTrue);
+    });
+
+    test('reports a clear error when userdata cannot be created', () {
+      final executableDir = Directory(
+        join(root.path, 'portable-failure'),
+      )..createSync(recursive: true);
+      File(join(executableDir.path, 'userdata')).writeAsStringSync('blocked');
+
+      expect(
+        () => AppPath.preparePortableDirectories(executableDir.path),
+        throwsA(
+          isA<FileSystemException>().having(
+            (error) => error.message,
+            'message',
+            contains('requires a writable application directory'),
+          ),
+        ),
+      );
+    });
+  });
 }

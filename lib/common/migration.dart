@@ -1,11 +1,19 @@
+import 'dart:io';
+
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
 
+import 'default_profile.dart';
+import 'path.dart';
 import 'preferences.dart';
 import 'task.dart';
 
 typedef MigrationTransform =
     Future<MigrationData> Function(Map<String, Object?> configMap);
+
+typedef MigrationFinalize = Future<Config> Function(Config config);
+
+Future<Config> _identityFinalize(Config config) async => config;
 
 abstract interface class MigrationStore {
   /// False when the backing store could not be opened at all, as opposed to a
@@ -64,13 +72,59 @@ class _AppMigrationStore implements MigrationStore {
   Future<void> setVersion(int version) => preferences.setVersion(version);
 }
 
+class _AppDefaultProfileStore implements DefaultProfileStore {
+  const _AppDefaultProfileStore();
+
+  @override
+  Future<bool> get isAvailable => preferences.isInit;
+
+  @override
+  Future<List<Profile>> loadProfiles() => database.profilesDao.query().get();
+
+  @override
+  Profile createProfile() => Profile.normal(label: defaultDirectProfileLabel);
+
+  @override
+  Future<File> profileFile(Profile profile) => profile.file;
+
+  @override
+  Future<void> saveProfile(Profile profile) async {
+    await database.profiles.put(profile.toCompanion());
+  }
+
+  @override
+  Future<void> removeProfile(int id) async {
+    await database.profilesDao.removeById(id);
+  }
+
+  @override
+  Future<bool> saveConfig(Config config) => preferences.saveConfig(config);
+
+  @override
+  Future<File> markerFile() async {
+    return File(await appPath.defaultProfileMarkerPath);
+  }
+}
+
+Future<Config> _ensureAppDefaultDirectProfile(Config config) {
+  return ensureDefaultDirectProfile(
+    config,
+    store: const _AppDefaultProfileStore(),
+  );
+}
+
 class Migration {
   final MigrationStore _store;
   final MigrationTransform _migrateV0;
+  final MigrationFinalize _finalize;
 
-  Migration({required MigrationStore store, MigrationTransform? migrateV0})
-    : _store = store,
-      _migrateV0 = migrateV0 ?? oldToNowTask;
+  Migration({
+    required MigrationStore store,
+    MigrationTransform? migrateV0,
+    MigrationFinalize? finalize,
+  }) : _store = store,
+       _migrateV0 = migrateV0 ?? oldToNowTask,
+       _finalize = finalize ?? _identityFinalize;
 
   static const currentVersion = 1;
 
@@ -102,7 +156,7 @@ class Migration {
         if (hasPlainTextDavPassword && !await _store.saveConfig(config)) {
           throw StateError('Failed to obfuscate the legacy WebDAV password');
         }
-        return config;
+        return _finalize(config);
       }
     }
 
@@ -135,13 +189,13 @@ class Migration {
       if (await _store.isAvailable) {
         throw StateError('Failed to save migrated preferences');
       }
-      return config;
+      return _finalize(config);
     }
     if (shouldClearClashConfig) {
       await _store.clearClashConfig();
     }
     await _store.setVersion(currentVersion);
-    return config;
+    return _finalize(config);
   }
 }
 
@@ -157,4 +211,7 @@ String? _getStoredDavPassword(Map<String, Object?>? configMap) {
   return password is String && password.isNotEmpty ? password : null;
 }
 
-final migration = Migration(store: const _AppMigrationStore());
+final migration = Migration(
+  store: const _AppMigrationStore(),
+  finalize: _ensureAppDefaultDirectProfile,
+);

@@ -6,6 +6,23 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Migration', () {
+    test('runs the finalizer for a current config', () async {
+      final configMap = _createConfigMap();
+      final store = _FakeMigrationStore(
+        configMap: configMap,
+        version: Migration.currentVersion,
+      );
+      final migration = Migration(
+        store: store,
+        finalize: (config) async => config.copyWith(currentProfileId: 77),
+      );
+
+      final config = await migration.run();
+
+      expect(config.currentProfileId, 77);
+      expect(store.events, ['getConfigMap', 'getVersion']);
+    });
+
     test('returns current config without rewriting storage', () async {
       final configMap = _createConfigMap(
         davProps: const DAVProps(
