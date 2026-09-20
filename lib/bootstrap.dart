@@ -104,10 +104,9 @@ class Bootstrap {
       isWindows: Platform.isWindows,
       hasProfiles: profiles.isNotEmpty,
     )) {
-      final profile = Profile.normal(label: defaultDirectProfileLabel).copyWith(
-        autoUpdate: false,
-        lastUpdateDate: DateTime.now(),
-      );
+      final profile = Profile.normal(
+        label: defaultDirectProfileLabel,
+      ).copyWith(autoUpdate: false, lastUpdateDate: DateTime.now());
       final file = await profile.file;
       try {
         await file.safeWriteAsString(defaultDirectProfileYaml);
