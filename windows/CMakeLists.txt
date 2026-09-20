@@ -83,6 +83,12 @@ install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
 install(FILES "EnableLoopback.exe" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
+# Release ZIPs are portable by default. The installer explicitly excludes this
+# marker so installed builds keep using the normal application support folder.
+install(FILES "portable.flag" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  CONFIGURATIONS Release
+  COMPONENT Runtime)
+
 # Ship the MSVC runtime next to the executable. Neither the installer nor the
 # portable archive can assume a machine already carries VCRedist, and without
 # these the app cannot start at all.
