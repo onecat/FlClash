@@ -70,6 +70,8 @@ Future<void> main(List<String> args) async {
   final targets = createPackageTargets(platform, results['targets']);
   final androidArch = results['arch'] as String?;
   final verbose = results['verbose'] as bool;
+  final hideAbout = results['hide-about'] as bool;
+  final hideDisclaimer = results['hide-disclaimer'] as bool;
 
   final exitCode = await _package(
     platform,
@@ -79,6 +81,8 @@ Future<void> main(List<String> args) async {
     arch,
     androidArch: androidArch,
     verbose: verbose,
+    hideAbout: hideAbout,
+    hideDisclaimer: hideDisclaimer,
   );
   exit(exitCode);
 }
@@ -107,6 +111,16 @@ ArgParser createSetupArgParser() {
       abbr: 'v',
       negatable: false,
       help: 'Enable verbose Flutter build output',
+    )
+    ..addFlag(
+      'hide-about',
+      negatable: false,
+      help: 'Hide the About entry from the application UI',
+    )
+    ..addFlag(
+      'hide-disclaimer',
+      negatable: false,
+      help: 'Hide the disclaimer entry and startup disclaimer dialog',
     );
 }
 
@@ -124,8 +138,16 @@ List<String> createFlutterBuildArgs({
   return flutterBuildArgs;
 }
 
-Map<String, String> createBuildEnvironment(String env) {
-  return {'APP_ENV': env};
+Map<String, Object> createBuildEnvironment(
+  String env, {
+  bool hideAbout = false,
+  bool hideDisclaimer = false,
+}) {
+  return {
+    'APP_ENV': env,
+    'HIDE_ABOUT': hideAbout,
+    'HIDE_DISCLAIMER': hideDisclaimer,
+  };
 }
 
 /// Packages whose build hook `pubspec.yaml` turns into a no-op.
@@ -162,9 +184,19 @@ Future<int> _package(
   String arch, {
   String? androidArch,
   required bool verbose,
+  required bool hideAbout,
+  required bool hideDisclaimer,
 }) async {
   final file = File(p.join(rootDir, 'env.json'));
-  await file.writeAsString(jsonEncode(createBuildEnvironment(env)));
+  await file.writeAsString(
+    jsonEncode(
+      createBuildEnvironment(
+        env,
+        hideAbout: hideAbout,
+        hideDisclaimer: hideDisclaimer,
+      ),
+    ),
+  );
 
   final flutterBuildArgs = createFlutterBuildArgs(
     platform: platform,
