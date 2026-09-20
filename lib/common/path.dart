@@ -120,7 +120,10 @@ class AppPath {
 
   Future<String> get sharedPreferencesPath async {
     final directory = await dataDir.future;
-    return join(directory.path, isPortable ? 'preferences.json' : 'shared_preferences.json');
+    return join(
+      directory.path,
+      isPortable ? 'preferences.json' : 'shared_preferences.json',
+    );
   }
 
   Future<String> get profilesPath async {
