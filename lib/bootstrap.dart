@@ -236,6 +236,9 @@ class Bootstrap {
   }
 
   Future<void> _handlerDisclaimer() async {
+    if (hideDisclaimer) {
+      return;
+    }
     if (_container.read(
       appSettingProvider.select((state) => state.disclaimerAccepted),
     )) {
