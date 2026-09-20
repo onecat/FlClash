@@ -56,9 +56,9 @@ class _ToolViewState extends ConsumerState<ToolsView> {
     return generateSection(
       title: context.appLocalizations.other,
       items: [
-        const _DisclaimerItem(),
+        if (!hideDisclaimer) const _DisclaimerItem(),
         if (enableDeveloperMode) const _DeveloperItem(),
-        const _InfoItem(),
+        if (!hideAbout) const _InfoItem(),
       ],
     );
   }

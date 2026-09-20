@@ -164,11 +164,19 @@ fn install_service() -> Result<()> {
     remove_existing_service(&manager)?;
 
     let executable_path = std::env::current_exe().context("resolve helper executable path")?;
+    let portable = executable_path
+        .parent()
+        .map(|parent| parent.join("portable.flag").exists())
+        .unwrap_or(false);
     let service_info = ServiceInfo {
         name: OsString::from(SERVICE_NAME),
         display_name: OsString::from(SERVICE_NAME),
         service_type: SERVICE_TYPE,
-        start_type: ServiceStartType::AutoStart,
+        start_type: if portable {
+            ServiceStartType::OnDemand
+        } else {
+            ServiceStartType::AutoStart
+        },
         error_control: ServiceErrorControl::Normal,
         executable_path,
         launch_arguments: Vec::new(),

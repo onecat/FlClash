@@ -10,7 +10,6 @@ import 'package:fl_clash/common/migration.dart';
 import 'package:fl_clash/common/permission.dart';
 import 'package:fl_clash/common/tray.dart';
 import 'package:fl_clash/common/window.dart';
-import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/models/models.dart';
@@ -99,6 +98,11 @@ class Bootstrap {
       config = config.copyWith(currentProfileId: null);
       await preferences.saveConfig(config);
     }
+    final defaultProfile = await ensureDefaultDirectProfile(
+      config: config,
+      isWindows: Platform.isWindows,
+    );
+    config = defaultProfile.config;
     final appState = AppState(
       brightness: WidgetsBinding.instance.platformDispatcher.platformBrightness,
       version: version,
@@ -122,8 +126,9 @@ class Bootstrap {
           darkSeed: dynamicColor.darkSeed,
           accentColor: dynamicColor.accentColor,
         );
-    final profiles = await database.profilesDao.query().get();
-    container.read(profilesProvider.notifier).setAndReorder(profiles);
+    container
+        .read(profilesProvider.notifier)
+        .setAndReorder(defaultProfile.profiles);
     await AppLocalizations.load(
       getLocaleForString(config.appSettingProps.locale) ??
           WidgetsBinding.instance.platformDispatcher.locale,
@@ -236,6 +241,9 @@ class Bootstrap {
   }
 
   Future<void> _handlerDisclaimer() async {
+    if (hideDisclaimer) {
+      return;
+    }
     if (_container.read(
       appSettingProvider.select((state) => state.disclaimerAccepted),
     )) {

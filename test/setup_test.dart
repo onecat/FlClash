@@ -21,8 +21,31 @@ void main() {
       expect(results['env'], 'dev');
     });
 
-    test('Flutter build environment does not depend on Core SHA256', () {
-      expect(setup.createBuildEnvironment('dev'), {'APP_ENV': 'dev'});
+    test('Flutter build environment includes UI visibility flags', () {
+      expect(setup.createBuildEnvironment('dev'), {
+        'APP_ENV': 'dev',
+        'HIDE_ABOUT': false,
+        'HIDE_DISCLAIMER': false,
+      });
+      expect(
+        setup.createBuildEnvironment(
+          'stable',
+          hideAbout: true,
+          hideDisclaimer: true,
+        ),
+        {'APP_ENV': 'stable', 'HIDE_ABOUT': true, 'HIDE_DISCLAIMER': true},
+      );
+    });
+
+    test('parses UI hiding switches', () {
+      final results = setup.createSetupArgParser().parse([
+        'windows',
+        '--hide-about',
+        '--hide-disclaimer',
+      ]);
+
+      expect(results['hide-about'], isTrue);
+      expect(results['hide-disclaimer'], isTrue);
     });
 
     test('omits verbose from flutter build args by default', () {

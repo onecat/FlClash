@@ -32,14 +32,23 @@ class AppPath {
 
   AppPath._internal() {
     appDirPath = join(dirname(Platform.resolvedExecutable));
-    supportDirectory().then((value) {
-      dataDir.complete(value);
-    });
+    if (isPortable) {
+      final portableDataDir = Directory(join(executableDirPath, 'userdata'));
+      final portableCacheDir = Directory(join(portableDataDir.path, 'cache'));
+      portableDataDir.createSync(recursive: true);
+      portableCacheDir.createSync(recursive: true);
+      dataDir.complete(portableDataDir);
+      cacheDir.complete(portableCacheDir);
+    } else {
+      supportDirectory().then((value) {
+        dataDir.complete(value);
+      });
+      cacheDirectory().then((value) {
+        cacheDir.complete(value);
+      });
+    }
     temporaryDirectory().then((value) {
       tempDir.complete(value);
-    });
-    cacheDirectory().then((value) {
-      cacheDir.complete(value);
     });
   }
 
@@ -47,6 +56,10 @@ class AppPath {
     _instance ??= AppPath._internal();
     return _instance!;
   }
+
+  bool get isPortable =>
+      Platform.isWindows &&
+      File(join(executableDirPath, 'portable.flag')).existsSync();
 
   String get executableExtension {
     return system.isWindows ? '.exe' : '';
@@ -107,7 +120,10 @@ class AppPath {
 
   Future<String> get sharedPreferencesPath async {
     final directory = await dataDir.future;
-    return join(directory.path, 'shared_preferences.json');
+    return join(
+      directory.path,
+      isPortable ? 'preferences.json' : 'shared_preferences.json',
+    );
   }
 
   Future<String> get profilesPath async {
