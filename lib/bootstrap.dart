@@ -99,14 +99,11 @@ class Bootstrap {
       config = config.copyWith(currentProfileId: null);
       await preferences.saveConfig(config);
     }
-    var profiles = await database.profilesDao.query().get();
     final defaultProfile = await ensureDefaultDirectProfile(
       config: config,
-      profiles: profiles,
       isWindows: Platform.isWindows,
     );
     config = defaultProfile.config;
-    profiles = defaultProfile.profiles;
     final appState = AppState(
       brightness: WidgetsBinding.instance.platformDispatcher.platformBrightness,
       version: version,
@@ -130,7 +127,9 @@ class Bootstrap {
           darkSeed: dynamicColor.darkSeed,
           accentColor: dynamicColor.accentColor,
         );
-    container.read(profilesProvider.notifier).setAndReorder(profiles);
+    container
+        .read(profilesProvider.notifier)
+        .setAndReorder(defaultProfile.profiles);
     await AppLocalizations.load(
       getLocaleForString(config.appSettingProps.locale) ??
           WidgetsBinding.instance.platformDispatcher.locale,
