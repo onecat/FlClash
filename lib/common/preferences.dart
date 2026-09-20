@@ -109,8 +109,7 @@ class Preferences {
   static Preferences? _instance;
   Completer<_PreferenceStore?> _storeCompleter = Completer();
 
-  Future<bool> get isInit async =>
-      await _storeCompleter.future != null;
+  Future<bool> get isInit async => await _storeCompleter.future != null;
 
   Preferences._internal() {
     if (appPath.isPortable) {
