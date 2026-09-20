@@ -10,6 +10,11 @@ import 'package:fl_clash/models/models.dart';
 import 'package:material_ui/material_ui.dart';
 
 const appName = 'FlClash';
+const hideAbout = bool.fromEnvironment('HIDE_ABOUT', defaultValue: false);
+const hideDisclaimer = bool.fromEnvironment(
+  'HIDE_DISCLAIMER',
+  defaultValue: false,
+);
 const appHelperService = 'FlClashHelperService';
 const coreManifestName = 'manifest.json';
 const coreName = 'clash.meta';
