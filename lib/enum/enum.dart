@@ -72,6 +72,10 @@ extension GroupTypeExtension on GroupType {
     return [GroupType.URLTest, GroupType.Fallback].contains(this);
   }
 
+  bool get canSelectProxyInUi {
+    return this == GroupType.Selector || isComputedSelected;
+  }
+
   static GroupType? getGroupType(String value) {
     final index = GroupTypeExtension.valueList.indexOf(value);
     if (index == -1) return null;

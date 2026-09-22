@@ -15,12 +15,15 @@ GroupsState currentGroupsState(Ref ref) {
       }),
     ),
   );
+  final selectableGroups = groups
+      .where((group) => group.type.canSelectProxyInUi)
+      .toList();
   return GroupsState(
     value: switch (mode) {
       Mode.direct => [],
-      Mode.global => groups.toList(),
+      Mode.global => selectableGroups,
       Mode.rule =>
-        groups
+        selectableGroups
             .where((item) => item.hidden == false)
             .where((element) => element.name != GroupName.GLOBAL.name)
             .toList(),

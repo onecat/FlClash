@@ -39,6 +39,10 @@ void main() {
         all: [Proxy(name: 'Selected', type: 'Direct', now: 'runtime')],
       ),
       const Group(name: 'Hidden', type: GroupType.Selector, hidden: true),
+      const Group(name: 'Auto', type: GroupType.URLTest, hidden: false),
+      const Group(name: 'Fallback', type: GroupType.Fallback, hidden: false),
+      const Group(name: 'Balance', type: GroupType.LoadBalance, hidden: false),
+      const Group(name: 'Relay', type: GroupType.Relay, hidden: false),
       Group(name: GroupName.GLOBAL.name, type: GroupType.Selector),
     ];
     container.read(groupsProvider.notifier).update((_) => groups);
@@ -47,14 +51,21 @@ void main() {
         .update((state) => state.copyWith(mode: Mode.rule));
 
     final ruleGroups = container.read(currentGroupsStateProvider).value;
-    expect(ruleGroups.map((group) => group.name), ['Visible']);
+    expect(ruleGroups.map((group) => group.name), [
+      'Visible',
+      'Auto',
+      'Fallback',
+    ]);
     expect(ruleGroups.single.now, isEmpty);
     expect(ruleGroups.single.all.single.now, isEmpty);
 
     container
         .read(patchClashConfigProvider.notifier)
         .update((state) => state.copyWith(mode: Mode.global));
-    expect(container.read(currentGroupsStateProvider).value, hasLength(3));
+    expect(
+      container.read(currentGroupsStateProvider).value.map((group) => group.name),
+      ['Visible', 'Hidden', 'Auto', 'Fallback', 'GLOBAL'],
+    );
 
     container
         .read(patchClashConfigProvider.notifier)
