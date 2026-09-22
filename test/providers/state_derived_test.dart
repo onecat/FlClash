@@ -58,8 +58,11 @@ void main() {
       'Balance',
       'Relay',
     ]);
-    expect(ruleGroups.single.now, isEmpty);
-    expect(ruleGroups.single.all.single.now, isEmpty);
+    final visibleGroup = ruleGroups.firstWhere(
+      (group) => group.name == 'Visible',
+    );
+    expect(visibleGroup.now, isEmpty);
+    expect(visibleGroup.all.single.now, isEmpty);
 
     container
         .read(patchClashConfigProvider.notifier)
@@ -184,15 +187,17 @@ void main() {
           .update((_) => const Size(900, 800));
 
       expect(
-        container.read(currentGroupsStateProvider).value.map(
-          (group) => group.name,
-        ),
+        container
+            .read(currentGroupsStateProvider)
+            .value
+            .map((group) => group.name),
         ['Group A', 'Group B', 'Group C', 'Balance', 'Relay'],
       );
       expect(
-        container.read(filterGroupsStateProvider('')).value.map(
-          (group) => group.name,
-        ),
+        container
+            .read(filterGroupsStateProvider(''))
+            .value
+            .map((group) => group.name),
         ['Group A', 'Group B', 'Group C'],
       );
       final filtered = container.read(filterGroupsStateProvider('ALP')).value;

@@ -100,11 +100,9 @@ class ProxyCard extends ConsumerWidget {
   }
 
   Future<void> _changeProxy(WidgetRef ref) async {
-    final isComputedSelected = groupType.isComputedSelected;
-    final isSelector = groupType == GroupType.Selector;
-    if (isComputedSelected || isSelector) {
+    if (groupType.canSelectProxyInUi) {
       final currentProxyName = ref.read(proxyNameProvider(groupName));
-      final nextProxyName = switch (isComputedSelected) {
+      final nextProxyName = switch (groupType.isComputedSelected) {
         true => currentProxyName == proxy.name ? '' : proxy.name,
         false => proxy.name,
       };

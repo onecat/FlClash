@@ -120,12 +120,33 @@ void main() {
     expect(key.currentState?.currentGroup?.name, 'B');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('falls back when the stored group is no longer visible', (
+    tester,
+  ) async {
+    final key = await pumpTabView(tester);
+
+    globalContainer.read(_tabStateProvider.notifier).set(
+      _tabState(
+        [_group('A'), _group('B')],
+        currentGroupName: 'Hidden balance group',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(key.currentState?.currentGroup?.name, 'A');
+    expect(globalContainer.read(currentProfileProvider)?.currentGroupName, 'A');
+    expect(tester.takeException(), isNull);
+  });
 }
 
-ProxiesTabState _tabState(List<Group> groups) {
+ProxiesTabState _tabState(
+  List<Group> groups, {
+  String currentGroupName = 'B',
+}) {
   return ProxiesTabState(
     groups: groups,
-    currentGroupName: 'B',
+    currentGroupName: currentGroupName,
     proxyCardType: ProxyCardType.expand,
   );
 }
