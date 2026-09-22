@@ -55,6 +55,8 @@ void main() {
       'Visible',
       'Auto',
       'Fallback',
+      'Balance',
+      'Relay',
     ]);
     expect(ruleGroups.single.now, isEmpty);
     expect(ruleGroups.single.all.single.now, isEmpty);
@@ -62,10 +64,7 @@ void main() {
     container
         .read(patchClashConfigProvider.notifier)
         .update((state) => state.copyWith(mode: Mode.global));
-    expect(
-      container.read(currentGroupsStateProvider).value.map((group) => group.name),
-      ['Visible', 'Hidden', 'Auto', 'Fallback', 'GLOBAL'],
-    );
+    expect(container.read(currentGroupsStateProvider).value, hasLength(7));
 
     container
         .read(patchClashConfigProvider.notifier)
@@ -153,6 +152,24 @@ void main() {
           testUrl: 'https://group.test',
           all: [Proxy(name: 'Gamma', type: 'Direct')],
         ),
+        const Group(
+          name: 'Group C',
+          type: GroupType.Fallback,
+          hidden: false,
+          all: [Proxy(name: 'Delta', type: 'Direct')],
+        ),
+        const Group(
+          name: 'Balance',
+          type: GroupType.LoadBalance,
+          hidden: false,
+          all: [Proxy(name: 'Alpha', type: 'Direct')],
+        ),
+        const Group(
+          name: 'Relay',
+          type: GroupType.Relay,
+          hidden: false,
+          all: [Proxy(name: 'Gamma', type: 'Direct')],
+        ),
       ];
       _profiles(container).replace([profile]);
       container
@@ -166,9 +183,21 @@ void main() {
           .read(viewSizeProvider.notifier)
           .update((_) => const Size(900, 800));
 
-      expect(container.read(filterGroupsStateProvider('')).value, hasLength(2));
+      expect(
+        container.read(currentGroupsStateProvider).value.map(
+          (group) => group.name,
+        ),
+        ['Group A', 'Group B', 'Group C', 'Balance', 'Relay'],
+      );
+      expect(
+        container.read(filterGroupsStateProvider('')).value.map(
+          (group) => group.name,
+        ),
+        ['Group A', 'Group B', 'Group C'],
+      );
       final filtered = container.read(filterGroupsStateProvider('ALP')).value;
       expect(filtered, hasLength(1));
+      expect(filtered.single.name, 'Group A');
       expect(filtered.single.all.single.name, 'Alpha');
 
       container
