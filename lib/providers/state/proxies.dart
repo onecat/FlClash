@@ -70,11 +70,14 @@ ProxiesActionsState proxiesActionsState(Ref ref) {
 @riverpod
 GroupsState filterGroupsState(Ref ref, String query) {
   final currentGroups = ref.watch(currentGroupsStateProvider);
+  final selectableGroups = currentGroups.value
+      .where((group) => group.type.canSelectProxyInUi)
+      .toList();
   if (query.isEmpty) {
-    return currentGroups;
+    return currentGroups.copyWith(value: selectableGroups);
   }
   final lowQuery = query.toLowerCase();
-  final groups = currentGroups.value
+  final groups = selectableGroups
       .map((group) {
         return group.copyWith(
           all: group.all
