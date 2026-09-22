@@ -126,12 +126,14 @@ void main() {
   ) async {
     final key = await pumpTabView(tester);
 
-    globalContainer.read(_tabStateProvider.notifier).set(
-      _tabState(
-        [_group('A'), _group('B')],
-        currentGroupName: 'Hidden balance group',
-      ),
-    );
+    globalContainer
+        .read(_tabStateProvider.notifier)
+        .set(
+          _tabState([
+            _group('A'),
+            _group('B'),
+          ], currentGroupName: 'Hidden balance group'),
+        );
     await tester.pumpAndSettle();
 
     expect(key.currentState?.currentGroup?.name, 'A');
@@ -140,10 +142,7 @@ void main() {
   });
 }
 
-ProxiesTabState _tabState(
-  List<Group> groups, {
-  String currentGroupName = 'B',
-}) {
+ProxiesTabState _tabState(List<Group> groups, {String currentGroupName = 'B'}) {
   return ProxiesTabState(
     groups: groups,
     currentGroupName: currentGroupName,
