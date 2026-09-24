@@ -4,6 +4,7 @@ import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
 
 import 'default_profile.dart';
+import 'first_run_defaults.dart';
 import 'path.dart';
 import 'preferences.dart';
 import 'task.dart';
@@ -112,12 +113,17 @@ class _AppDefaultProfileStore implements DefaultProfileStore {
   }
 }
 
-Future<Config> _ensureAppDefaultDirectProfile(
+Future<Config> _finalizeAppConfig(
   Config config, {
   required bool isFreshInstall,
-}) {
-  return ensureDefaultDirectProfile(
+}) async {
+  final configWithDefaults = applyWindowsFirstRunDefaults(
     config,
+    isFreshInstall: isFreshInstall,
+    isStoreAvailable: await preferences.isInit,
+  );
+  return ensureDefaultDirectProfile(
+    configWithDefaults,
     isFreshInstall: isFreshInstall,
     store: const _AppDefaultProfileStore(),
   );
@@ -226,5 +232,5 @@ String? _getStoredDavPassword(Map<String, Object?>? configMap) {
 
 final migration = Migration(
   store: const _AppMigrationStore(),
-  finalize: _ensureAppDefaultDirectProfile,
+  finalize: _finalizeAppConfig,
 );
