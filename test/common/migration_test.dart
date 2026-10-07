@@ -6,6 +6,64 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Migration', () {
+    test('runs the finalizer for a current config', () async {
+      final configMap = _createConfigMap();
+      final store = _FakeMigrationStore(
+        configMap: configMap,
+        version: Migration.currentVersion,
+      );
+      bool? observedFreshInstall;
+      final migration = Migration(
+        store: store,
+        finalize: (config, {required bool isFreshInstall}) async {
+          observedFreshInstall = isFreshInstall;
+          return config.copyWith(currentProfileId: 77);
+        },
+      );
+
+      final config = await migration.run();
+
+      expect(config.currentProfileId, 77);
+      expect(observedFreshInstall, isFalse);
+      expect(store.events, ['getConfigMap', 'getVersion']);
+    });
+
+    test('reports an empty version-zero store as a fresh install', () async {
+      final store = _FakeMigrationStore(configMap: null, version: 0);
+      bool? observedFreshInstall;
+      final migration = Migration(
+        store: store,
+        finalize: (config, {required bool isFreshInstall}) async {
+          observedFreshInstall = isFreshInstall;
+          return config;
+        },
+      );
+
+      await migration.run();
+
+      expect(observedFreshInstall, isTrue);
+    });
+
+    test('legacy clash-only data is not a fresh install', () async {
+      final store = _FakeMigrationStore(
+        configMap: null,
+        version: 0,
+        clashConfigMap: _createClashConfigMap(mixedPort: 7890),
+      );
+      bool? observedFreshInstall;
+      final migration = Migration(
+        store: store,
+        finalize: (config, {required bool isFreshInstall}) async {
+          observedFreshInstall = isFreshInstall;
+          return config;
+        },
+      );
+
+      await migration.run();
+
+      expect(observedFreshInstall, isFalse);
+    });
+
     test('returns current config without rewriting storage', () async {
       final configMap = _createConfigMap(
         davProps: const DAVProps(

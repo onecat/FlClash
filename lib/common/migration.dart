@@ -1,11 +1,24 @@
+import 'dart:io';
+
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/models/models.dart';
 
+import 'default_profile.dart';
+import 'first_run_defaults.dart';
+import 'path.dart';
 import 'preferences.dart';
 import 'task.dart';
 
 typedef MigrationTransform =
     Future<MigrationData> Function(Map<String, Object?> configMap);
+
+typedef MigrationFinalize =
+    Future<Config> Function(Config config, {required bool isFreshInstall});
+
+Future<Config> _identityFinalize(
+  Config config, {
+  required bool isFreshInstall,
+}) async => config;
 
 abstract interface class MigrationStore {
   /// False when the backing store could not be opened at all, as opposed to a
@@ -65,19 +78,77 @@ class _AppMigrationStore implements MigrationStore {
   Future<void> setVersion(int version) => preferences.setVersion(version);
 }
 
+class _AppDefaultProfileStore implements DefaultProfileStore {
+  const _AppDefaultProfileStore();
+
+  @override
+  Future<bool> get isAvailable => preferences.isInit;
+
+  @override
+  Future<List<Profile>> loadProfiles() => database.profilesDao.query().get();
+
+  @override
+  Profile createProfile() => Profile.normal(label: defaultDirectProfileLabel);
+
+  @override
+  Future<File> profileFile(int profileId) async {
+    return File(await appPath.getProfilePath(profileId.toString()));
+  }
+
+  @override
+  Future<void> saveProfile(Profile profile) async {
+    await database.profiles.put(profile.toCompanion());
+  }
+
+  @override
+  Future<void> removeProfile(int id) async {
+    await database.profilesDao.removeById(id);
+  }
+
+  @override
+  Future<bool> saveConfig(Config config) => preferences.saveConfig(config);
+
+  @override
+  Future<File> markerFile() async {
+    return File(await appPath.defaultProfileMarkerPath);
+  }
+}
+
+Future<Config> _finalizeAppConfig(
+  Config config, {
+  required bool isFreshInstall,
+}) async {
+  final configWithDefaults = applyWindowsFirstRunDefaults(
+    config,
+    isFreshInstall: isFreshInstall,
+    isStoreAvailable: await preferences.isInit,
+  );
+  return ensureDefaultDirectProfile(
+    configWithDefaults,
+    isFreshInstall: isFreshInstall,
+    store: const _AppDefaultProfileStore(),
+  );
+}
+
 class Migration {
   final MigrationStore _store;
   final MigrationTransform _migrateV0;
+  final MigrationFinalize _finalize;
 
-  Migration({required MigrationStore store, MigrationTransform? migrateV0})
-    : _store = store,
-      _migrateV0 = migrateV0 ?? oldToNowTask;
+  Migration({
+    required MigrationStore store,
+    MigrationTransform? migrateV0,
+    MigrationFinalize? finalize,
+  }) : _store = store,
+       _migrateV0 = migrateV0 ?? oldToNowTask,
+       _finalize = finalize ?? _identityFinalize;
 
   static const currentVersion = 1;
 
   Future<Config> run() async {
     final configMap = await _store.getConfigMap();
     var oldVersion = await _store.getVersion();
+    var isFreshInstall = configMap == null && oldVersion == 0;
     Config? config;
     if (oldVersion > currentVersion) {
       throw StateError(
@@ -103,7 +174,7 @@ class Migration {
         if (hasPlainTextDavPassword && !await _store.saveConfig(config)) {
           throw StateError('Failed to obfuscate the legacy WebDAV password');
         }
-        return config;
+        return _finalize(config, isFreshInstall: isFreshInstall);
       }
     }
 
@@ -111,6 +182,7 @@ class Migration {
     var shouldClearClashConfig = false;
     if (oldVersion == 0) {
       final clashConfigMap = await _store.getClashConfigMap();
+      isFreshInstall = isFreshInstall && clashConfigMap == null;
       if (_isV0(configMap) && configMap != null) {
         final legacyConfigMap = Map<String, Object?>.from(configMap);
         if (clashConfigMap != null) {
@@ -130,6 +202,7 @@ class Migration {
 
     config = Config.realFromJson(data.configMap);
     await _store.restore(data);
+    config = await _finalize(config, isFreshInstall: isFreshInstall);
     if (!await _store.saveConfig(config)) {
       // An unopenable store is reported later by the corrupt-cache dialog,
       // which offers a reset; failing here would hide that path.
@@ -158,4 +231,7 @@ String? _getStoredDavPassword(Map<String, Object?>? configMap) {
   return password is String && password.isNotEmpty ? password : null;
 }
 
-final migration = Migration(store: const _AppMigrationStore());
+final migration = Migration(
+  store: const _AppMigrationStore(),
+  finalize: _finalizeAppConfig,
+);

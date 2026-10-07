@@ -28,6 +28,14 @@ void main() {
       expect(GroupType.Fallback.isComputedSelected, isTrue);
       expect(GroupType.Selector.isComputedSelected, isFalse);
     });
+
+    test('marks only groups that can select a proxy in the UI', () {
+      expect(GroupType.Selector.canSelectProxyInUi, isTrue);
+      expect(GroupType.URLTest.canSelectProxyInUi, isTrue);
+      expect(GroupType.Fallback.canSelectProxyInUi, isTrue);
+      expect(GroupType.LoadBalance.canSelectProxyInUi, isFalse);
+      expect(GroupType.Relay.canSelectProxyInUi, isFalse);
+    });
   });
 
   group('UsedProxyExtension', () {

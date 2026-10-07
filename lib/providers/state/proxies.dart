@@ -107,7 +107,12 @@ GroupsState visibleGroupsState(Ref ref) {
 
 @riverpod
 GroupsState filterGroupsState(Ref ref, String query) {
-  final currentGroups = ref.watch(visibleGroupsStateProvider);
+  final visibleGroups = ref.watch(visibleGroupsStateProvider);
+  final currentGroups = visibleGroups.copyWith(
+    value: visibleGroups.value
+        .where((group) => group.type.canSelectProxyInUi)
+        .toList(),
+  );
   final searchQuery = SearchQuery(query);
   if (searchQuery.isEmpty) {
     return currentGroups;

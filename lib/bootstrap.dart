@@ -151,7 +151,6 @@ class Bootstrap {
     unawaited(
       _container.read(profilesActionProvider.notifier).autoUpdateProfiles(),
     );
-    unawaited(_container.read(commonActionProvider.notifier).autoCheckUpdate());
     unawaited(
       autoLaunch?.updateStatus(_container.read(appSettingProvider).autoLaunch),
     );
@@ -237,6 +236,9 @@ class Bootstrap {
   }
 
   Future<void> _handlerDisclaimer() async {
+    if (hideDisclaimer) {
+      return;
+    }
     if (_container.read(
       appSettingProvider.select((state) => state.disclaimerAccepted),
     )) {

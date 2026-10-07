@@ -15,7 +15,7 @@ void selectGroupProxy(
   required String proxyName,
 }) {
   final isComputedSelected = groupType.isComputedSelected;
-  if (isComputedSelected || groupType == GroupType.Selector) {
+  if (groupType.canSelectProxyInUi) {
     final currentProxyName = ref.read(proxyNameProvider(groupName));
     final nextProxyName = switch (isComputedSelected) {
       true => currentProxyName == proxyName ? '' : proxyName,

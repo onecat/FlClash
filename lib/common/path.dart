@@ -33,14 +33,20 @@ class AppPath {
 
   AppPath._internal() {
     appDirPath = join(dirname(Platform.resolvedExecutable));
-    supportDirectory().then((value) {
-      dataDir.complete(value);
-    });
+    if (isPortable) {
+      final directories = preparePortableDirectories(executableDirPath);
+      dataDir.complete(directories.data);
+      cacheDir.complete(directories.cache);
+    } else {
+      supportDirectory().then((value) {
+        dataDir.complete(value);
+      });
+      cacheDirectory().then((value) {
+        cacheDir.complete(value);
+      });
+    }
     temporaryDirectory().then((value) {
       tempDir.complete(value);
-    });
-    cacheDirectory().then((value) {
-      cacheDir.complete(value);
     });
   }
 
@@ -48,6 +54,38 @@ class AppPath {
     _instance ??= AppPath._internal();
     return _instance!;
   }
+
+  @visibleForTesting
+  static ({Directory data, Directory cache}) preparePortableDirectories(
+    String executableDirPath,
+  ) {
+    final data = Directory(join(executableDirPath, 'userdata'));
+    final cache = Directory(join(data.path, 'cache'));
+    final probe = File(join(data.path, '.flclash-write-test-$pid'));
+    try {
+      data.createSync(recursive: true);
+      cache.createSync(recursive: true);
+      probe.writeAsStringSync('ok', flush: true);
+    } on FileSystemException catch (error) {
+      throw FileSystemException(
+        'Portable mode requires a writable application directory. '
+        'Move FlClash to a folder your account can write to.',
+        data.path,
+        error.osError,
+      );
+    } finally {
+      try {
+        if (probe.existsSync()) {
+          probe.deleteSync();
+        }
+      } catch (_) {}
+    }
+    return (data: data, cache: cache);
+  }
+
+  bool get isPortable =>
+      Platform.isWindows &&
+      File(join(executableDirPath, 'portable.flag')).existsSync();
 
   String get executableExtension {
     return system.isWindows ? '.exe' : '';
@@ -98,7 +136,14 @@ class AppPath {
 
   Future<String> get sharedPreferencesPath async {
     final directory = await dataDir.future;
-    return join(directory.path, 'shared_preferences.json');
+    return join(
+      directory.path,
+      isPortable ? 'preferences.json' : 'shared_preferences.json',
+    );
+  }
+
+  Future<String> get defaultProfileMarkerPath async {
+    return join(await homeDirPath, 'profile-initialized.flag');
   }
 
   Future<String> get profilesPath async {
