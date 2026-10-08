@@ -350,15 +350,28 @@ jobs:
           flutter --version
           flutter pub get
 
-      - name: Build Windows portable package
-        run: dart setup.dart windows --hide-about --hide-disclaimer -v
+      - name: Build Windows distribution packages
+        run: dart setup.dart windows --targets exe,zip --hide-about --hide-disclaimer -v
 
-      - name: Verify Windows portable archive
+      - name: Verify Windows distribution packages
         shell: pwsh
         run: |
-          $zipFiles = @(Get-ChildItem -Path ./dist -Filter *.zip -File)
+          $zipFiles = @(Get-ChildItem -Path ./dist -Filter 'FlClash-*-windows-amd64.zip' -File)
           if ($zipFiles.Count -ne 1) {
-            throw "Expected exactly one ZIP in dist, found $($zipFiles.Count)."
+            throw "Expected exactly one Windows portable ZIP in dist, found $($zipFiles.Count)."
+          }
+
+          $setupFiles = @(Get-ChildItem -Path ./dist -Filter 'FlClash-*-windows-amd64-setup.exe' -File)
+          if ($setupFiles.Count -ne 1) {
+            throw "Expected exactly one Windows installer EXE in dist, found $($setupFiles.Count)."
+          }
+
+          foreach ($file in @($zipFiles[0], $setupFiles[0])) {
+            if ($file.Length -le 0) {
+              throw "$($file.Name) is empty."
+            }
+            Write-Host "$($file.Name): $($file.Length) bytes"
+            Get-FileHash -Path $file.FullName -Algorithm SHA256 | Format-List
           }
 
           Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -399,8 +412,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FlClash-windows-amd64-portable
-          path: ./dist
-          overwrite: true
+          path: ./dist/FlClash-*-windows-amd64.zip
+          if-no-files-found: error
+
+      - name: Upload Windows setup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlClash-windows-amd64-setup
+          path: ./dist/FlClash-*-windows-amd64-setup.exe
+          if-no-files-found: error
 
   build:
     # Releases publish where the release links point: the public repository.
