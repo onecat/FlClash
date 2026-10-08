@@ -26,7 +26,6 @@ void main() {
       expect(result.appSettingProps.autoRun, isTrue);
       expect(result.appSettingProps.silentLaunch, isTrue);
       expect(result.networkProps.systemProxy, isTrue);
-      expect(result.appSettingProps.silentLaunch, isTrue);
     });
 
     test('does not overwrite an existing Windows install', () {
