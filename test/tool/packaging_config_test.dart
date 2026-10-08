@@ -71,9 +71,11 @@ void main() {
     final steps = (jobs['windows-portable-build'] as YamlMap)['steps']
         as YamlList;
 
-    YamlMap stepNamed(String name) => steps
-        .cast<YamlMap>()
-        .singleWhere((step) => step['name'] == name);
+    YamlMap stepNamed(String name) {
+      return steps.cast<YamlMap>().singleWhere(
+        (step) => step['name'] == name,
+      );
+    }
 
     test('both distributions are built together', () {
       final build = stepNamed('Build Windows distribution packages');
