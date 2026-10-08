@@ -10,7 +10,7 @@ void main() {
         appSettingProps: AppSettingProps(
           autoLaunch: false,
           autoRun: false,
-          silentLaunch: true,
+          silentLaunch: false,
         ),
         networkProps: NetworkProps(systemProxy: false),
       );
@@ -24,6 +24,7 @@ void main() {
 
       expect(result.appSettingProps.autoLaunch, isTrue);
       expect(result.appSettingProps.autoRun, isTrue);
+      expect(result.appSettingProps.silentLaunch, isTrue);
       expect(result.networkProps.systemProxy, isTrue);
       expect(result.appSettingProps.silentLaunch, isTrue);
     });
@@ -43,6 +44,7 @@ void main() {
       );
 
       expect(result, config);
+      expect(result.appSettingProps.silentLaunch, isFalse);
     });
 
     test('does not change settings when the store is unavailable', () {
@@ -107,6 +109,7 @@ void main() {
       expect(result.overrideDns, isTrue);
       expect(result.appSettingProps.locale, 'zh_CN');
       expect(result.appSettingProps.minimizeOnExit, isFalse);
+      expect(result.appSettingProps.silentLaunch, isTrue);
       expect(result.networkProps.bypassDomain, ['example.com']);
     });
   });
