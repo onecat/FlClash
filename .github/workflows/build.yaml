@@ -395,11 +395,36 @@ jobs:
             $archive.Dispose()
           }
 
+      - name: Verify separate Windows distribution files
+        shell: pwsh
+        run: |
+          $setupFiles = @(Get-ChildItem -Path ./dist -Filter '*-windows-amd64-setup.exe' -File)
+          $portableFiles = @(Get-ChildItem -Path ./dist -Filter '*-windows-amd64.zip' -File)
+          if ($setupFiles.Count -ne 1 -or $portableFiles.Count -ne 1) {
+            throw "Expected one Setup EXE and one Portable ZIP; found $($setupFiles.Count) Setup and $($portableFiles.Count) Portable."
+          }
+          foreach ($file in @($setupFiles[0], $portableFiles[0])) {
+            if ($file.Length -le 0) {
+              throw "Distribution file is empty: $($file.Name)"
+            }
+            $hash = (Get-FileHash -Path $file.FullName -Algorithm SHA256).Hash
+            Write-Host "$($file.Name) | $($file.Length) bytes | SHA256 $hash"
+          }
+
       - name: Upload Windows portable artifact
         uses: actions/upload-artifact@v4
         with:
           name: FlClash-windows-amd64-portable
-          path: ./dist
+          path: ./dist/*-windows-amd64.zip
+          if-no-files-found: error
+          overwrite: true
+
+      - name: Upload Windows setup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlClash-windows-amd64-setup
+          path: ./dist/*-windows-amd64-setup.exe
+          if-no-files-found: error
           overwrite: true
 
   build:
