@@ -17,6 +17,7 @@ Config applyWindowsFirstRunDefaults(
   return config.copyWith(
     appSettingProps: config.appSettingProps.copyWith(
       autoLaunch: true,
+      silentLaunch: true,
       autoRun: true,
     ),
     networkProps: config.networkProps.copyWith(systemProxy: true),
