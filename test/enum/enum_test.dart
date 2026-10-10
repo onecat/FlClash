@@ -76,7 +76,7 @@ void main() {
 
   group('RuleTarget', () {
     test('contains built-in target names', () {
-      expect(RuleTarget.baseTargets, {'DIRECT', 'REJECT'});
+      expect(RuleTarget.baseTargets, {'DIRECT', 'REJECT', 'REJECT-DROP'});
     });
   });
 

@@ -3,7 +3,9 @@ import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/views/config/general.dart';
 import 'package:fl_clash/views/dashboard/widgets/quick_options.dart';
+import 'package:fl_clash/widgets/widgets.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,12 +14,19 @@ import '../../helpers/test_app.dart';
 import '../../helpers/test_profiles.dart';
 
 class _CardCase {
-  const _CardCase(this.name, this.widget, this.read, {this.initial = false});
+  const _CardCase(
+    this.name,
+    this.widget,
+    this.read, {
+    this.initial = false,
+    this.opensGeneral = false,
+  });
 
   final String name;
   final Widget widget;
   final bool Function(ProviderContainer container) read;
   final bool initial;
+  final bool opensGeneral;
 }
 
 final _cardCases = <_CardCase>[
@@ -33,10 +42,26 @@ final _cardCases = <_CardCase>[
     initial: true,
   ),
   _CardCase(
+    'auto launch',
+    const AutoLaunchButton(),
+    (container) => container.read(appSettingProvider).autoLaunch,
+    opensGeneral: true,
+  ),
+  _CardCase(
     'VPN',
     const VpnButton(),
     (container) => container.read(vpnSettingProvider).enable,
     initial: true,
+  ),
+  _CardCase(
+    'DNS override',
+    const OverrideDnsButton(),
+    (container) => container.read(overrideDnsProvider),
+  ),
+  _CardCase(
+    'NTP override',
+    const OverrideNtpButton(),
+    (container) => container.read(overrideNtpProvider),
   ),
 ];
 
@@ -107,7 +132,7 @@ void main() {
     }
   });
 
-  testWidgets('the three cards stay visually interchangeable', (tester) async {
+  testWidgets('the cards stay visually interchangeable', (tester) async {
     final switches = <Switch>[];
     for (final testCase in _cardCases) {
       await pumpCard(tester, testCase.widget);
@@ -124,17 +149,36 @@ void main() {
     );
   });
 
-  testWidgets('every card labels itself and offers its options', (
+  testWidgets('every card labels its state and opens its options', (
     tester,
   ) async {
     for (final testCase in _cardCases) {
       await pumpCard(tester, testCase.widget);
 
       expect(
-        find.text(currentAppLocalizations.options),
+        find.text(
+          testCase.initial
+              ? currentAppLocalizations.enabled
+              : currentAppLocalizations.disabled,
+        ),
         findsOneWidget,
-        reason: '${testCase.name} must show the options affordance',
+        reason: '${testCase.name} must label the state it reads',
       );
+
+      await tester.tap(find.byType(CommonCard));
+      await tester.pumpAndSettle();
+
+      final sheet = testCase.opensGeneral
+          ? find.byType(GeneralView)
+          : find.byType(CommonScaffold);
+      expect(
+        sheet,
+        findsOneWidget,
+        reason: '${testCase.name} must open its options from the card',
+      );
+
+      Navigator.of(tester.element(sheet)).pop();
+      await tester.pumpAndSettle();
     }
   });
 }
