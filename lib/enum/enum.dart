@@ -452,7 +452,8 @@ enum DashboardWidget {
   overrideNtpButton,
   runTime,
   proxyGroups,
-  profiles;
+  profiles,
+  autoLaunchButton(platforms: desktopPlatforms);
 
   final List<SupportPlatform> platforms;
 
