@@ -152,7 +152,7 @@ void main() {
       expect(restored.dashboardWidgets, DashboardWidget.values);
     });
 
-    test('auto-launch dashboard card persists without changing older lists', () {
+    test('auto-launch card persists with older layouts', () {
       final restored = AppSettingProps.fromJson({
         'dashboardWidgets': ['networkSpeed', 'autoLaunchButton'],
       });
