@@ -152,6 +152,28 @@ void main() {
       expect(restored.dashboardWidgets, DashboardWidget.values);
     });
 
+    test('auto-launch dashboard card persists without changing older lists', () {
+      final restored = AppSettingProps.fromJson({
+        'dashboardWidgets': ['networkSpeed', 'autoLaunchButton'],
+      });
+      expect(restored.dashboardWidgets, [
+        DashboardWidget.networkSpeed,
+        DashboardWidget.autoLaunchButton,
+      ]);
+      expect(restored.toJson()['dashboardWidgets'], [
+        'networkSpeed',
+        'autoLaunchButton',
+      ]);
+
+      final older = AppSettingProps.fromJson({
+        'dashboardWidgets': ['networkSpeed', 'systemProxyButton'],
+      });
+      expect(older.dashboardWidgets, [
+        DashboardWidget.networkSpeed,
+        DashboardWidget.systemProxyButton,
+      ]);
+    });
+
     test('custom values survive round-trip', () {
       const props = AppSettingProps(
         locale: 'zh_CN',
