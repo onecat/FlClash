@@ -40,6 +40,11 @@ extension DashboardWidgetView on DashboardWidget {
       crossAxisCellCount: 4,
       child: SystemProxyButton(),
     ),
+    DashboardWidget.autoLaunchButton => const GridItem(
+      key: ValueKey(DashboardWidget.autoLaunchButton),
+      crossAxisCellCount: 4,
+      child: AutoLaunchButton(),
+    ),
     DashboardWidget.intranetIp => const GridItem(
       key: ValueKey(DashboardWidget.intranetIp),
       crossAxisCellCount: 4,
