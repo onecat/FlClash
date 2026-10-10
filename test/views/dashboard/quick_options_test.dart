@@ -3,6 +3,7 @@ import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/config.dart';
 import 'package:fl_clash/providers/database.dart';
 import 'package:fl_clash/state.dart';
+import 'package:fl_clash/views/config/general.dart';
 import 'package:fl_clash/views/dashboard/widgets/quick_options.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:material_ui/material_ui.dart';
@@ -13,12 +14,19 @@ import '../../helpers/test_app.dart';
 import '../../helpers/test_profiles.dart';
 
 class _CardCase {
-  const _CardCase(this.name, this.widget, this.read, {this.initial = false});
+  const _CardCase(
+    this.name,
+    this.widget,
+    this.read, {
+    this.initial = false,
+    this.opensGeneral = false,
+  });
 
   final String name;
   final Widget widget;
   final bool Function(ProviderContainer container) read;
   final bool initial;
+  final bool opensGeneral;
 }
 
 final _cardCases = <_CardCase>[
@@ -32,6 +40,12 @@ final _cardCases = <_CardCase>[
     const SystemProxyButton(),
     (container) => container.read(networkSettingProvider).systemProxy,
     initial: true,
+  ),
+  _CardCase(
+    'auto launch',
+    const AutoLaunchButton(),
+    (container) => container.read(appSettingProvider).autoLaunch,
+    opensGeneral: true,
   ),
   _CardCase(
     'VPN',
@@ -154,7 +168,9 @@ void main() {
       await tester.tap(find.byType(CommonCard));
       await tester.pumpAndSettle();
 
-      final sheet = find.byType(CommonScaffold);
+      final sheet = testCase.opensGeneral
+          ? find.byType(GeneralView)
+          : find.byType(CommonScaffold);
       expect(
         sheet,
         findsOneWidget,
