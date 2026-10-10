@@ -164,6 +164,25 @@ class SystemProxyButton extends StatelessWidget {
   }
 }
 
+class AutoLaunchButton extends StatelessWidget {
+  const AutoLaunchButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return _QuickSwitchCard(
+      label: context.appLocalizations.autoLaunch,
+      glyph: AppGlyphs.bolt,
+      sheetBuilder: (_) => const GeneralView(),
+      selector: appSettingProvider.select((state) => state.autoLaunch),
+      onChanged: (ref, value) {
+        ref
+            .read(appSettingProvider.notifier)
+            .update((state) => state.copyWith(autoLaunch: value));
+      },
+    );
+  }
+}
+
 class VpnButton extends StatelessWidget {
   const VpnButton({super.key});
 
