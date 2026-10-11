@@ -41,11 +41,16 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
         ref.read(storeActionProvider.notifier).savePreferencesDebounce();
       }
     });
-    ref.listenManual(groupsProvider, (prev, next) {
-      if (prev != next) {
-        unawaited(precacheTargetIcons(next.map((group) => group.icon)));
-      }
-    }, fireImmediately: true);
+    // On Windows, loading every proxy-group icon at startup can retain
+    // decoded images before the proxies page is ever opened. Icons still
+    // load on demand when their widgets become visible.
+    if (!system.isWindows) {
+      ref.listenManual(groupsProvider, (prev, next) {
+        if (prev != next) {
+          unawaited(precacheTargetIcons(next.map((group) => group.icon)));
+        }
+      }, fireImmediately: true);
+    }
     ref.listenManual(needUpdateGroupsProvider, (prev, next) {
       if (prev != next) {
         ref.read(proxiesActionProvider.notifier).updateGroupsDebounce();
