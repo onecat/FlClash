@@ -41,15 +41,56 @@ class AppPath {
   }
 
   void _bind() {
-    _dataDir = ResolveOnce(supportDirectory);
+    _dataDir = ResolveOnce(
+      isPortable
+          ? () async => preparePortableDirectories(executableDirPath).data
+          : supportDirectory,
+    );
     _downloadDir = ResolveOnce(downloadDirectory);
     _tempDir = ResolveOnce(temporaryDirectory);
-    cacheDirectory().then(cacheDir.complete);
+    if (isPortable) {
+      _dataDir.value.then((directory) {
+        if (!cacheDir.isCompleted) {
+          cacheDir.complete(Directory(join(directory.path, 'cache')));
+        }
+      });
+    } else {
+      cacheDirectory().then(cacheDir.complete);
+    }
   }
 
   factory AppPath() {
     _instance ??= AppPath._internal();
     return _instance!;
+  }
+
+  bool get isPortable =>
+      Platform.isWindows &&
+      File(join(executableDirPath, 'portable.flag')).existsSync();
+
+  @visibleForTesting
+  static ({Directory data, Directory cache}) preparePortableDirectories(
+    String executableDirectory,
+  ) {
+    final data = Directory(join(executableDirectory, 'userdata'));
+    final cache = Directory(join(data.path, 'cache'));
+    final probe = File(join(data.path, '.flclash-write-test-$pid'));
+    try {
+      data.createSync(recursive: true);
+      cache.createSync(recursive: true);
+      probe.writeAsStringSync('ok', flush: true);
+    } on FileSystemException catch (error) {
+      throw FileSystemException(
+        'Portable mode needs a writable application folder.',
+        data.path,
+        error.osError,
+      );
+    } finally {
+      try {
+        if (probe.existsSync()) probe.deleteSync();
+      } catch (_) {}
+    }
+    return (data: data, cache: cache);
   }
 
   String get executableExtension {
@@ -103,6 +144,9 @@ class AppPath {
     final directory = await _dataDir.value;
     return join(directory.path, 'shared_preferences.json');
   }
+
+  Future<String> get defaultProfileMarkerPath async =>
+      join(await homeDirPath, 'profile-initialized.flag');
 
   Future<String> get profilesPath async {
     final directory = await _dataDir.value;

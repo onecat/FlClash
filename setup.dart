@@ -79,6 +79,8 @@ Future<void> main(List<String> args) async {
     arch,
     androidArch: androidArch,
     verbose: verbose,
+    hideAbout: results['hide-about'] as bool,
+    hideDisclaimer: results['hide-disclaimer'] as bool,
   );
   exit(exitCode);
 }
@@ -107,7 +109,9 @@ ArgParser createSetupArgParser() {
       abbr: 'v',
       negatable: false,
       help: 'Enable verbose Flutter build output',
-    );
+    )
+    ..addFlag('hide-about', negatable: false)
+    ..addFlag('hide-disclaimer', negatable: false);
 }
 
 List<String> createFlutterBuildArgs({
@@ -124,8 +128,16 @@ List<String> createFlutterBuildArgs({
   return flutterBuildArgs;
 }
 
-Map<String, String> createBuildEnvironment(String env) {
-  return {'APP_ENV': env};
+Map<String, String> createBuildEnvironment(
+  String env, {
+  bool hideAbout = false,
+  bool hideDisclaimer = false,
+}) {
+  return {
+    'APP_ENV': env,
+    if (hideAbout) 'HIDE_ABOUT': 'true',
+    if (hideDisclaimer) 'HIDE_DISCLAIMER': 'true',
+  };
 }
 
 /// Packages whose build hook `pubspec.yaml` turns into a no-op.
@@ -162,9 +174,15 @@ Future<int> _package(
   String arch, {
   String? androidArch,
   required bool verbose,
+  required bool hideAbout,
+  required bool hideDisclaimer,
 }) async {
   final file = File(p.join(rootDir, 'env.json'));
-  await file.writeAsString(jsonEncode(createBuildEnvironment(env)));
+  await file.writeAsString(jsonEncode(createBuildEnvironment(
+    env,
+    hideAbout: hideAbout,
+    hideDisclaimer: hideDisclaimer,
+  )));
 
   final flutterBuildArgs = createFlutterBuildArgs(
     platform: platform,

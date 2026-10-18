@@ -101,6 +101,10 @@ class ProfilesDao extends DatabaseAccessor<Database> with _$ProfilesDaoMixin {
     );
   }
 
+  Future<int> removeById(int id) {
+    return profiles.remove((table) => table.id.equals(id));
+  }
+
   Future<void> setAll(Iterable<Profile> profiles) async {
     await batch((b) async {
       setAllWithBatch(b, profiles);

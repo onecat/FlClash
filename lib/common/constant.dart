@@ -10,6 +10,8 @@ import 'package:fl_clash/models/models.dart';
 import 'package:material_ui/material_ui.dart';
 
 const appName = 'FlClash';
+const hideAbout = bool.fromEnvironment('HIDE_ABOUT', defaultValue: false);
+const hideDisclaimer = bool.fromEnvironment('HIDE_DISCLAIMER', defaultValue: false);
 const appHelperService = 'FlClashHelperService';
 const coreManifestName = 'manifest.json';
 const browserUa =
@@ -108,7 +110,7 @@ const configKey = 'config';
 const systemDnsRecordKey = 'system_dns_record';
 const bootRecordKey = 'boot_record';
 const defaultSystemDnsFallback = '223.5.5.5';
-const repository = 'chen08209/FlClash';
+const repository = 'onecat/FlClash';
 const maxMobileWidth = 600;
 const maxLaptopWidth = 840;
 const defaultTestUrl = 'https://www.gstatic.com/generate_204';
