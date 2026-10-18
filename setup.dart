@@ -178,11 +178,15 @@ Future<int> _package(
   required bool hideDisclaimer,
 }) async {
   final file = File(p.join(rootDir, 'env.json'));
-  await file.writeAsString(jsonEncode(createBuildEnvironment(
-    env,
-    hideAbout: hideAbout,
-    hideDisclaimer: hideDisclaimer,
-  )));
+  await file.writeAsString(
+    jsonEncode(
+      createBuildEnvironment(
+        env,
+        hideAbout: hideAbout,
+        hideDisclaimer: hideDisclaimer,
+      ),
+    ),
+  );
 
   final flutterBuildArgs = createFlutterBuildArgs(
     platform: platform,

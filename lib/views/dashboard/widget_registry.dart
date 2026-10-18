@@ -49,7 +49,7 @@ extension DashboardWidgetView on DashboardWidget {
       DashboardWidget.connectionStats => appLocalizations.connectionStats,
       DashboardWidget.intranetIp => appLocalizations.intranetIP,
       DashboardWidget.memoryInfo => appLocalizations.memoryInfo,
-    DashboardWidget.autoLaunchButton => appLocalizations.autoLaunch,
+      DashboardWidget.autoLaunchButton => appLocalizations.autoLaunch,
     };
   }
 

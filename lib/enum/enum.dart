@@ -107,7 +107,8 @@ extension GroupTypeExtension on GroupType {
   }
 
   /// A selector or a group with an automatically chosen outbound.
-  bool get canSelectProxyInUi => this == GroupType.Selector || isComputedSelected;
+  bool get canSelectProxyInUi =>
+      this == GroupType.Selector || isComputedSelected;
 
   static GroupType? getGroupType(String value) {
     final index = GroupTypeExtension.valueList.indexOf(value);

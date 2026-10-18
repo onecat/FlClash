@@ -102,7 +102,9 @@ GroupsState filterGroupsState(Ref ref, String query) {
   if (searchQuery.isEmpty) {
     return _selectableGroups(ref.watch(visibleGroupsStateProvider));
   }
-  final currentGroups = _selectableGroups(ref.watch(currentGroupsStateProvider));
+  final currentGroups = _selectableGroups(
+    ref.watch(currentGroupsStateProvider),
+  );
   final matches = <Proxy, bool>{};
   final groups = currentGroups.value
       .map((group) {

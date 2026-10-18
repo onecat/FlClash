@@ -54,12 +54,8 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Temporary diagnostic: review the exact changes and continue analysis/tests.
-      # Restore strict Check format before merging or releasing.
-      - name: Review formatting changes
-        run: |
-          dart format lib test tool plugins setup.dart
-          git diff -- lib/common/constant.dart lib/enum/enum.dart lib/providers/state/proxies.dart lib/views/dashboard/widget_registry.dart setup.dart
+      - name: Check format
+        run: dart format --output=none --set-exit-if-changed lib test tool plugins setup.dart
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos
