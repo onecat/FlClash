@@ -83,6 +83,13 @@ install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
 install(FILES "EnableLoopback.exe" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
+# ZIPs are portable; the installer excludes this flag.
+install(CODE "
+  if(\"\${CMAKE_INSTALL_CONFIG_NAME}\" STREQUAL \"Release\")
+    file(WRITE \"${INSTALL_BUNDLE_LIB_DIR}/portable.flag\" \"portable\\n\")
+  endif()
+" COMPONENT Runtime)
+
 # Ship the MSVC runtime next to the executable. Neither the installer nor the
 # portable archive can assume a machine already carries VCRedist, and without
 # these the app cannot start at all.

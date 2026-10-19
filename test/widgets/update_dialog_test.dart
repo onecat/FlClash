@@ -154,6 +154,7 @@ void main() {
 
     await tapCancel(tester);
     await shown;
-    expect(container.read(appSettingProvider).autoCheckUpdate, isTrue);
+    // A manual check must not re-enable automatic update checks.
+    expect(container.read(appSettingProvider).autoCheckUpdate, isFalse);
   });
 }
