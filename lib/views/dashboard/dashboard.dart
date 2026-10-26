@@ -196,6 +196,8 @@ class _DesktopDashboard extends StatelessWidget {
                   const RepaintBoundary(child: OutboundModeBar()),
                 ),
                 sized(controlHeight, row(switches)),
+                if (platform == SupportPlatform.Windows)
+                  sized(controlHeight, row(const [(2, AutoLaunchTile())])),
                 sized(
                   middleHeight,
                   row(const [(1, IntranetIpCard()), (1, ProfilesCard())]),
@@ -222,6 +224,8 @@ class _DesktopDashboard extends StatelessWidget {
             controlHeight,
             row([(2, const OutboundModeBar()), ...switches]),
           ),
+          if (platform == SupportPlatform.Windows)
+            sized(controlHeight, row([(columns, const AutoLaunchTile())])),
           sized(
             middleHeight,
             row([
@@ -241,8 +245,9 @@ class _DesktopDashboard extends StatelessWidget {
             padding.vertical +
             topHeight +
             controlHeight +
+            (platform == SupportPlatform.Windows ? controlHeight : 0) +
             middleHeight +
-            gap * 3;
+            gap * (platform == SupportPlatform.Windows ? 4 : 3);
         final tablesFit = constraints.maxHeight >= rowsHeight + tablesHeight;
         final fills = constraints.maxHeight >= rowsHeight + summaryHeight;
         return SingleChildScrollView(

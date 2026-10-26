@@ -1,14 +1,27 @@
+import 'dart:io';
+
 import 'package:fl_clash/common/constant.dart';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/ui/color.dart';
 
+import 'default_profile.dart';
+import 'first_run_defaults.dart';
+import 'path.dart';
 import 'preferences.dart';
 import 'task.dart';
 
 typedef MigrationTransform =
     Future<MigrationData> Function(Map<String, Object?> configMap);
+
+typedef MigrationFinalize =
+    Future<Config> Function(Config config, {required bool isFreshInstall});
+
+Future<Config> _identityFinalize(
+  Config config, {
+  required bool isFreshInstall,
+}) async => config;
 
 abstract interface class MigrationStore {
   /// False when the backing store could not be opened at all, as opposed to a
@@ -79,13 +92,71 @@ class _AppMigrationStore implements MigrationStore {
       preferences.setUpgradeVersion(version);
 }
 
+class _AppDefaultProfileStore implements DefaultProfileStore {
+  const _AppDefaultProfileStore();
+
+  @override
+  Future<bool> get isAvailable => preferences.isInit;
+
+  @override
+  Future<List<Profile>> loadProfiles() => database.profilesDao.query().get();
+
+  @override
+  Profile createProfile() => Profile.normal(label: defaultDirectProfileLabel);
+
+  @override
+  Future<File> profileFile(int profileId) async {
+    return File(await appPath.getProfilePath(profileId.toString()));
+  }
+
+  @override
+  Future<void> saveProfile(Profile profile) async {
+    await database.profiles.put(profile.toCompanion());
+  }
+
+  @override
+  Future<void> removeProfile(int id) async {
+    await database.profilesDao.removeById(id);
+  }
+
+  @override
+  Future<bool> saveConfig(Config config) => preferences.saveConfig(config);
+
+  @override
+  Future<File> markerFile() async {
+    return File(await appPath.defaultProfileMarkerPath);
+  }
+}
+
+Future<Config> _finalizeAppConfig(
+  Config config, {
+  required bool isFreshInstall,
+}) async {
+  final configWithDefaults = applyWindowsFirstRunDefaults(
+    config,
+    isFreshInstall: isFreshInstall,
+    isStoreAvailable: await preferences.isInit,
+  );
+  return ensureDefaultDirectProfile(
+    configWithDefaults,
+    isFreshInstall: isFreshInstall,
+    store: const _AppDefaultProfileStore(),
+  );
+}
+
 class Migration {
   final MigrationStore _store;
   final MigrationTransform _migrateV0;
+  final MigrationFinalize _finalize;
+  bool _isFreshInstall = false;
 
-  Migration({required MigrationStore store, MigrationTransform? migrateV0})
-    : _store = store,
-      _migrateV0 = migrateV0 ?? oldToNowTask;
+  Migration({
+    required MigrationStore store,
+    MigrationTransform? migrateV0,
+    MigrationFinalize? finalize,
+  }) : _store = store,
+       _migrateV0 = migrateV0 ?? oldToNowTask,
+       _finalize = finalize ?? _identityFinalize;
 
   static const currentVersion = 1;
 
@@ -103,7 +174,8 @@ class Migration {
   Future<Config> run() async {
     final configMap = await _store.getConfigMap();
     final config = await _migrate(configMap);
-    return _upgrade(config, installed: configMap != null);
+    final upgraded = await _upgrade(config, installed: configMap != null);
+    return _finalize(upgraded, isFreshInstall: _isFreshInstall);
   }
 
   Future<Config> _upgrade(Config config, {required bool installed}) async {
@@ -126,6 +198,7 @@ class Migration {
 
   Future<Config> _migrate(Map<String, Object?>? configMap) async {
     var oldVersion = await _store.getVersion();
+    _isFreshInstall = configMap == null && oldVersion == 0;
     Config? config;
     if (oldVersion > currentVersion) {
       throw StateError(
@@ -158,6 +231,7 @@ class Migration {
     var shouldClearClashConfig = false;
     if (oldVersion == 0) {
       final clashConfigMap = await _store.getClashConfigMap();
+      if (clashConfigMap != null) _isFreshInstall = false;
       if (_isV0(configMap) && configMap != null) {
         final legacyConfigMap = Map<String, Object?>.from(configMap);
         if (clashConfigMap != null) {
@@ -250,4 +324,7 @@ String? _getStoredDavPassword(Map<String, Object?>? configMap) {
   return password is String && password.isNotEmpty ? password : null;
 }
 
-final migration = Migration(store: const _AppMigrationStore());
+final migration = Migration(
+  store: const _AppMigrationStore(),
+  finalize: _finalizeAppConfig,
+);

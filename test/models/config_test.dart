@@ -130,7 +130,7 @@ void main() {
       expect(restored.openLogs, false);
       expect(restored.closeConnections, true);
       expect(restored.tabAnimation, TabAnimation.fade);
-      expect(restored.autoCheckUpdate, true);
+      expect(restored.autoCheckUpdate, false);
       expect(restored.sidebarExpanded, true);
       expect(restored.minimizeOnExit, true);
       expect(restored.restoreStrategy, RestoreStrategy.compatible);

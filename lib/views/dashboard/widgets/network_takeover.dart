@@ -192,6 +192,62 @@ class NetworkTakeoverTile extends StatelessWidget {
   }
 }
 
+class _AutoLaunchSwitch extends ConsumerWidget {
+  const _AutoLaunchSwitch({required this.metrics});
+
+  final _RowMetrics metrics;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final localizations = context.appLocalizations;
+    final enabled = ref.watch(
+      appSettingProvider.select((state) => state.autoLaunch),
+    );
+    void change(bool value) => ref
+        .read(appSettingProvider.notifier)
+        .update((state) => state.copyWith(autoLaunch: value));
+    return DashboardSwitchRow(
+      glyph: AppGlyphs.bolt,
+      title: localizations.autoLaunch,
+      subtitle: enabled ? localizations.enabled : localizations.disabled,
+      value: enabled,
+      iconSize: metrics.icon,
+      padding: metrics.padding,
+      radius: metrics.radius,
+      showIcon: true,
+      color: Colors.transparent,
+      onTap: () => change(!enabled),
+      onChanged: change,
+    );
+  }
+}
+
+/// Optional card used in the editable, narrow dashboard.
+class AutoLaunchCard extends StatelessWidget {
+  const AutoLaunchCard({super.key});
+
+  @override
+  Widget build(BuildContext context) => DashboardCard(
+    padding: EdgeInsets.zero,
+    semanticLabel: context.appLocalizations.autoLaunch,
+    child: const _AutoLaunchSwitch(metrics: _cardRowMetrics),
+  );
+}
+
+/// Windows startup shortcut in the fixed desktop dashboard.
+class AutoLaunchTile extends StatelessWidget {
+  const AutoLaunchTile({super.key});
+
+  @override
+  Widget build(BuildContext context) => DashboardCard(
+    padding: EdgeInsets.zero,
+    semanticLabel: context.appLocalizations.autoLaunch,
+    child: _AutoLaunchSwitch(
+      metrics: _tileMetricsOf(DashboardDensityScope.of(context)),
+    ),
+  );
+}
+
 void _setVpn(WidgetRef ref, bool value) => ref
     .read(vpnSettingProvider.notifier)
     .update((state) => state.copyWith(enable: value));

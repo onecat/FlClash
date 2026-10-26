@@ -38,7 +38,7 @@ _AppSettingProps _$AppSettingPropsFromJson(
       ) ??
       TabAnimation.fade,
   floatingNavigationBar: json['floatingNavigationBar'] as bool? ?? true,
-  autoCheckUpdate: json['autoCheckUpdate'] as bool? ?? true,
+  autoCheckUpdate: json['autoCheckUpdate'] as bool? ?? false,
   sidebarExpanded:
       _readSidebarExpanded(json, 'sidebarExpanded') as bool? ?? true,
   acceptedDisclaimerVersion:
@@ -153,6 +153,7 @@ const _$DashboardWidgetEnumMap = {
   DashboardWidget.connectionStats: 'connectionStats',
   DashboardWidget.intranetIp: 'intranetIp',
   DashboardWidget.memoryInfo: 'memoryInfo',
+  DashboardWidget.autoLaunchButton: 'autoLaunchButton',
 };
 
 _AccessControlProps _$AccessControlPropsFromJson(Map<String, dynamic> json) =>

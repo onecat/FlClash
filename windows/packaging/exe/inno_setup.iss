@@ -168,7 +168,10 @@ english.RemoveUserData=Also delete your profiles and settings?
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: {% if CREATE_DESKTOP_ICON != true %}unchecked{% else %}checkedonce{% endif %}
 [Files]
-Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Excludes: "portable.flag,userdata\\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[InstallDelete]
+Type: files; Name: "{app}\\portable.flag"
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

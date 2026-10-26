@@ -106,6 +106,10 @@ extension GroupTypeExtension on GroupType {
     return [GroupType.URLTest, GroupType.Fallback].contains(this);
   }
 
+  /// A selector or a group with an automatically chosen outbound.
+  bool get canSelectProxyInUi =>
+      this == GroupType.Selector || isComputedSelected;
+
   static GroupType? getGroupType(String value) {
     final index = GroupTypeExtension.valueList.indexOf(value);
     if (index == -1) return null;
@@ -491,7 +495,8 @@ enum DashboardWidget {
   proxyGroups,
   connectionStats,
   intranetIp,
-  memoryInfo;
+  memoryInfo,
+  autoLaunchButton(platforms: desktopPlatforms);
 
   final List<SupportPlatform> platforms;
 

@@ -92,13 +92,19 @@ GroupsState _hideTimeoutProxies(Ref ref, GroupsState groups) {
 
 /// Searches before hiding, so a group whose matches all timed out keeps them,
 /// and with them its delay test, instead of dropping out of the results.
+GroupsState _selectableGroups(GroupsState state) => state.copyWith(
+  value: state.value.where((group) => group.type.canSelectProxyInUi).toList(),
+);
+
 @riverpod
 GroupsState filterGroupsState(Ref ref, String query) {
   final searchQuery = SearchQuery(query);
   if (searchQuery.isEmpty) {
-    return ref.watch(visibleGroupsStateProvider);
+    return _selectableGroups(ref.watch(visibleGroupsStateProvider));
   }
-  final currentGroups = ref.watch(currentGroupsStateProvider);
+  final currentGroups = _selectableGroups(
+    ref.watch(currentGroupsStateProvider),
+  );
   final matches = <Proxy, bool>{};
   final groups = currentGroups.value
       .map((group) {

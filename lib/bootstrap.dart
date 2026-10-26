@@ -165,7 +165,6 @@ class Bootstrap {
     unawaited(
       _container.read(profilesActionProvider.notifier).autoUpdateProfiles(),
     );
-    unawaited(_container.read(commonActionProvider.notifier).autoCheckUpdate());
     unawaited(
       autoLaunch?.updateStatus(_container.read(appSettingProvider).autoLaunch),
     );
@@ -242,6 +241,7 @@ class Bootstrap {
   /// Android's exit only finishes the activity, so Dart keeps running after
   /// [SystemAction.handleExit] returns and must not go on to start the app.
   Future<bool> _handlerDisclaimer() async {
+    if (hideDisclaimer) return true;
     final acceptedVersion = _container.read(
       appSettingProvider.select((state) => state.acceptedDisclaimerVersion),
     );

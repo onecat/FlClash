@@ -39,11 +39,14 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
         ref.read(storeActionProvider.notifier).savePreferencesDebounce();
       }
     });
-    ref.listenManual(groupsProvider, (prev, next) {
-      if (prev != next) {
-        unawaited(precacheTargetIcons(next.map((group) => group.icon)));
-      }
-    }, fireImmediately: true);
+    // Windows loads proxy icons on demand rather than decoding all at startup.
+    if (!system.isWindows) {
+      ref.listenManual(groupsProvider, (prev, next) {
+        if (prev != next) {
+          unawaited(precacheTargetIcons(next.map((group) => group.icon)));
+        }
+      }, fireImmediately: true);
+    }
     ref.listenManual(iconSetsProvider, (_, next) {
       if (next.value case final iconSets?) {
         unawaited(
